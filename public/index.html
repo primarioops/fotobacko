@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Foto Backo</title>
+
+<style>
+body { margin:0; font-family:Arial; background:#fff; color:#111; }
+
+header {
+    text-align:center;
+    padding:30px 20px;
+    border-bottom:1px solid #eee;
+}
+
+.logo img {
+    height:250px;
+    margin-bottom:10px;
+}
+
+.subtitle { font-size:16px; color:#555; }
+.contact { margin-top:8px; font-weight:bold; }
+
+.filters {
+    max-width:1200px;
+    margin:30px auto;
+    display:flex;
+    gap:15px;
+    flex-wrap:wrap;
+    padding:0 20px;
+}
+
+.filters input, .filters select {
+    padding:10px;
+    font-size:14px;
+}
+
+.container {
+    max-width:1200px;
+    margin:20px auto;
+    padding:0 20px;
+    display:grid;
+    grid-template-columns:repeat(3, 1fr);
+    gap:30px;
+}
+
+.album-card {
+    border:1px solid #eee;
+    border-radius:8px;
+    margin-bottom:30px;
+    overflow:hidden;
+    background:#fff;
+}
+
+.thumb-slider {
+    position:relative;
+    overflow:hidden;
+}
+
+.thumb-track {
+    display:flex;
+    transition:transform 0.4s ease;
+}
+
+.thumb-track img {
+    width:100%;
+    height:auto;
+    flex-shrink:0;
+    object-fit:contain;
+    cursor:pointer;
+    border-radius:8px;
+}
+
+.arrow {
+    position:absolute;
+    top:50%;
+    transform:translateY(-50%);
+    background:rgba(0,0,0,0.6);
+    color:#fff;
+    width:36px;
+    height:36px;
+    border-radius:50%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+    font-size:18px;
+}
+
+.arrow.left { left:10px; }
+.arrow.right { right:10px; }
+
+.album-info {
+    padding:15px;
+    font-weight:bold;
+}
+
+.new-badge {
+    background:red;
+    color:#fff;
+    font-size:12px;
+    padding:3px 8px;
+    margin-left:10px;
+    border-radius:4px;
+}
+
+footer {
+    text-align:center;
+    padding:40px 20px;
+    border-top:1px solid #eee;
+    font-size:14px;
+}
+@media (max-width:900px){
+    .container{
+        grid-template-columns:1fr;
+    }
+
+    .thumb-track img{
+        height:240px;
+    }
+}
+</style>
+</head>
+<body>
+
+<header>
+    <div class="logo">
+        <img src="/logo.png">
+    </div>
+    <div class="subtitle">Profesionalna sportska fotografija</div>
+    <div class="contact">📞 +381 64 423 6630</div>
+</header>
+
+<div class="filters">
+    <input type="text" id="search" placeholder="Pretraga kluba...">
+
+    <select id="season">
+        <option value="">Sve sezone</option>
+    </select>
+
+    <select id="sport">
+        <option value="fudbal" selected>Fudbal</option>
+        <option value="ostalo">Ostalo</option>
+    </select>
+
+    <select id="category">
+        <option value="">Sve kategorije</option>
+    </select>
+</div>
+
+<div class="container" id="albums"></div>
+
+<footer>
+© 2026 Foto Backo – Profesionalna sportska fotografija
+</footer>
+
+<script>
+function norm(s){
+    return s.toLowerCase()
+        .replace(/š/g,"s")
+        .replace(/đ/g,"dj")
+        .replace(/č/g,"c")
+        .replace(/ć/g,"c")
+        .replace(/ž/g,"z");
+}
+
+let allAlbums = [];
+
+fetch("/api/albums")
+.then(r=>r.json())
+.then(albums=>{
+    allAlbums = albums;
+
+    const seasonSet = new Set();
+    const catSet = new Set();
+
+    albums.forEach(a=>{
+        if(a.season) seasonSet.add(a.season);
+        if(a.category) catSet.add(a.category);
+    });
+
+    const seasonSelect = document.getElementById("season");
+    [...seasonSet].sort().forEach(s=>{
+        seasonSelect.innerHTML += `<option value="${s}">${s}</option>`;
+    });
+
+    const catSelect = document.getElementById("category");
+    [...catSet].forEach(c=>{
+        catSelect.innerHTML += `<option value="${c}">${c}</option>`;
+    });
+
+    render(albums);
+});
+
+function render(albums){
+    const container = document.getElementById("albums");
+    container.innerHTML="";
+
+    albums.forEach((album,i)=>{
+
+        const title = `${album.date} ${album.club1} – ${album.club2} (${album.category}${album.extra ? " " + album.extra : ""})`;
+
+        const card = document.createElement("div");
+        card.className="album-card";
+
+        let imagesHTML = "";
+        if(album.thumbnails.length){
+            album.thumbnails.forEach(t=>{
+                imagesHTML += `<img src="${t}" onclick="openAlbum('${album.name}')">`;
+            });
+        } else {
+            imagesHTML = `<div style="padding:40px;text-align:center;">Nema thumbnaila</div>`;
+        }
+
+        card.innerHTML=`
+            <div class="thumb-slider">
+                <div class="thumb-track" id="track-${i}">
+                    ${imagesHTML}
+                </div>
+                ${album.thumbnails.length>1?`
+                <div class="arrow left" onclick="slide(${i},-1)">‹</div>
+                <div class="arrow right" onclick="slide(${i},1)">›</div>
+                `:""}
+            </div>
+            <div class="album-info">
+                ${title.toUpperCase()}
+                ${i<8?'<span class="new-badge">NOVO</span>':''}
+            </div>
+        `;
+        container.appendChild(card);
+    });
+}
+
+function slide(i,dir){
+    const track = document.getElementById(`track-${i}`);
+    const width = track.clientWidth;
+    const current = track.style.transform.match(/-?\d+/);
+    let offset = current?parseInt(current[0]):0;
+    offset += dir*width;
+    if(offset>0) offset=0;
+    if(offset<-width*(track.children.length-1)) offset=-width*(track.children.length-1);
+    track.style.transform=`translateX(${offset}px)`;
+}
+
+function openAlbum(name){
+    window.location=`/album.html?name=${name}`;
+}
+</script>
+
+</body>
+</html>
