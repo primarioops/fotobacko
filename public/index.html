@@ -6,39 +6,47 @@
 <title>Foto Backo</title>
 
 <style>
+{
+    box-sizing:border-box;
+}
+
 body { 
     margin:0; 
-    font-family:Arial; 
+    font-family:Arial, sans-serif; 
     background:#fff; 
     color:#111; 
 }
 
-/* HEADER /
+/ HEADER /
 header {
     text-align:center;
-    padding:15px 20px 10px 20px;
+    padding:20px 20px 10px 20px;
     border-bottom:1px solid #eee;
 }
 
 .logo img {
-    height:230px;
-    margin-bottom:5px;
+    width:100%;
+    max-width:420px;
+    height:auto;
+    display:block;
+    margin:0 auto 10px auto;
 }
 
 .subtitle { 
-    font-size:16px; 
+    font-size:18px; 
     color:#555; 
 }
 
 .contact { 
     margin-top:8px; 
-    font-weight:bold; 
+    font-weight:bold;
+    font-size:18px;
 }
 
 / FILTERS /
 .filters {
     max-width:1200px;
-    margin:30px auto;
+    margin:25px auto;
     display:flex;
     gap:15px;
     flex-wrap:wrap;
@@ -47,8 +55,9 @@ header {
 
 .filters input, 
 .filters select {
-    padding:10px;
-    font-size:14px;
+    padding:12px;
+    font-size:16px;
+    min-width:160px;
 }
 
 / ALBUM GRID /
@@ -64,7 +73,6 @@ header {
 .album-card {
     border:1px solid #eee;
     border-radius:8px;
-    margin-bottom:30px;
     overflow:hidden;
     background:#fff;
 }
@@ -128,21 +136,37 @@ footer {
     font-size:14px;
 }
 
-/ MOBILE HEADER /
+/ MOBILE */
 @media (max-width:900px){
+
     header{
-        padding:10px 15px 5px 15px;
+        padding:15px 15px 5px 15px;
     }
 
     .logo img{
-        height:180px;
+        max-width:300px;
     }
-}
 
-/ MOBILE GRID – 1 ALBUM PO REDU /
-@media (max-width:900px){
+    .subtitle{
+        font-size:16px;
+    }
+
+    .contact{
+        font-size:16px;
+    }
+
+    .filters{
+        gap:10px;
+    }
+
+    .filters input,
+    .filters select{
+        width:100%;
+        font-size:16px;
+    }
+
     .container{
-        grid-template-columns:1fr !important;
+        grid-template-columns:1fr;
         gap:20px;
     }
 }
