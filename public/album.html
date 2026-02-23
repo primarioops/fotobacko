@@ -123,8 +123,9 @@ button{
   font-size:14px;
   line-height:1.5;
 }
-@media (max-width: 600px) {
 
+/* MOBILE /
+@media (max-width: 600px) {
   .pick{
     width:26px;
     height:26px;
@@ -133,13 +134,33 @@ button{
     right:6px;
     box-shadow:none;
   }
-
 }
+
 @media (max-width: 768px){
   .grid{
     grid-template-columns:repeat(2, 1fr);
     gap:12px;
   }
+}
+
+/ VIBER MODAL */
+#viberModal{
+  display:none;
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,0.5);
+  z-index:2000;
+  align-items:center;
+  justify-content:center;
+}
+
+#viberModal .modal-box{
+  background:#fff;
+  width:90%;
+  max-width:400px;
+  padding:20px;
+  border-radius:8px;
+  text-align:center;
 }
 </style>
 </head>
@@ -171,6 +192,31 @@ button{
       <button class="wa" onclick="send('wa')">WhatsApp</button>
       <button class="viber" onclick="send('vi')">Viber</button>
     </div>
+  </div>
+</div>
+
+<!-- VIBER MODAL -->
+<div id="viberModal">
+  <div class="modal-box">
+    <h3>Viber poruka</h3>
+    <p style="font-size:14px;">
+      Sledeća poruka će biti kopirana.<br>
+      Nakon otvaranja Vibera obavezno je <b>nalepite (PASTE)</b> i pošaljete.
+    </p>
+
+    <textarea id="viberMessagePreview"
+      style="width:100%; height:100px; margin:10px 0; font-size:13px; padding:8px;"
+      readonly></textarea>
+
+    <button onclick="copyAndOpenViber()" style="background:#7360F2;color:#fff;padding:10px 15px;border:none;border-radius:5px;cursor:pointer;">
+      Kopiraj i otvori Viber
+    </button>
+
+    <br><br>
+
+    <button onclick="closeViberModal()" style="background:#ccc;padding:6px 12px;border:none;border-radius:5px;cursor:pointer;">
+      Otkaži
+    </button>
   </div>
 </div>
 
@@ -216,14 +262,33 @@ function send(type){
   if(selected.length === 0) return;
 
   selected.sort((a,b)=>a-b);
-
   const message = titleEl.innerText + "\n" + selected.join(" ");
 
   if(type==="wa"){
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`);
-  }else{
-    window.open(`viber://chat?number=%2B${phone}&text=${encodeURIComponent(message)}`);
   }
+
+  if(type==="vi"){
+    document.getElementById("viberMessagePreview").value = message;
+    document.getElementById("viberModal").style.display = "flex";
+  }
+}
+
+function closeViberModal(){
+  document.getElementById("viberModal").style.display = "none";
+}
+
+function copyAndOpenViber(){
+  const message = document.getElementById("viberMessagePreview").value;
+
+  navigator.clipboard.writeText(message).then(()=>{
+    alert("Poruka je kopirana. U Viberu je obavezno nalepite (PASTE) i pošaljite.");
+    window.location.href = `viber://chat?number=%2B${phone}`;
+  }).catch(()=>{
+    alert("Kopiranje nije uspelo. Ručno kopirajte tekst.");
+  });
+
+  closeViberModal();
 }
 
 fetch(`/api/albums`)
