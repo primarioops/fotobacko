@@ -6,103 +6,72 @@
 <title>Foto Backo</title>
 
 <style>
-{
-    box-sizing:border-box;
-}
+body { margin:0; font-family:Arial; background:#fff; color:#111; }
 
-body{
-    margin:0;
-    font-family:Arial, sans-serif;
-    background:#fff;
-    color:#111;
-}
-
-/ HEADER /
-header{
+header {
     text-align:center;
-    padding:20px 20px 10px 20px;
+    padding:30px 20px;
     border-bottom:1px solid #eee;
 }
 
-.logo{
-    text-align:center;
+.logo img {
+    height:250px;
+    margin-bottom:10px;
 }
 
-.logo img{
-    max-width:380px;
-    width:100%;
-    height:auto;
-    display:block;
-    margin:0 auto 10px auto;
-}
+.subtitle { font-size:16px; color:#555; }
+.contact { margin-top:8px; font-weight:bold; }
 
-.subtitle{
-    font-size:18px;
-    color:#555;
-    text-align:center;
-}
-
-.contact{
-    margin-top:6px;
-    font-weight:bold;
-    font-size:18px;
-    text-align:center;
-}
-
-/ FILTERS /
-.filters{
+.filters {
     max-width:1200px;
-    margin:25px auto;
+    margin:30px auto;
     display:flex;
-    gap:12px;
+    gap:15px;
     flex-wrap:wrap;
     padding:0 20px;
-    justify-content:center;
 }
 
-.filters input,
-.filters select{
+.filters input, .filters select {
     padding:10px;
-    font-size:15px;
-    min-width:150px;
+    font-size:14px;
 }
 
-/ GRID /
-.container{
+.container {
     max-width:1200px;
     margin:20px auto;
     padding:0 20px;
     display:grid;
-    grid-template-columns:repeat(3,1fr);
+    grid-template-columns:repeat(3, 1fr);
     gap:30px;
 }
 
-.album-card{
+.album-card {
     border:1px solid #eee;
     border-radius:8px;
     overflow:hidden;
     background:#fff;
 }
 
-/ SLIDER /
-.thumb-slider{
+.thumb-slider {
     position:relative;
     overflow:hidden;
 }
 
-.thumb-track{
+.thumb-track {
     display:flex;
     transition:transform 0.4s ease;
 }
 
-.thumb-track img{
+.thumb-track img {
     width:100%;
+    height:auto;
     flex-shrink:0;
-    object-fit:cover;
+    object-fit:contain;
     cursor:pointer;
+    border-radius:8px;
 }
 
-.arrow{
+.arrow {
     position:absolute;
     top:50%;
     transform:translateY(-50%);
@@ -116,18 +85,17 @@ header{
     justify-content:center;
     cursor:pointer;
     font-size:18px;
-    z-index:2;
 }
 
-.arrow.left{ left:10px; }
-.arrow.right{ right:10px; }
+.arrow.left { left:10px; }
+.arrow.right { right:10px; }
 
-.album-info{
+.album-info {
     padding:15px;
     font-weight:bold;
 }
 
-.new-badge{
+.new-badge {
     background:red;
     color:#fff;
     font-size:12px;
@@ -136,52 +104,20 @@ header{
     border-radius:4px;
 }
 
-footer{
+footer {
     text-align:center;
     padding:40px 20px;
     border-top:1px solid #eee;
     font-size:14px;
 }
 
-/ MOBILE */
 @media (max-width:900px){
-
-    header{
-        padding:15px 15px 5px 15px;
-    }
-
-    .logo img{
-        max-width:280px;
-    }
-
-    .subtitle{
-        font-size:16px;
-    }
-
-    .contact{
-        font-size:16px;
-    }
-
-    .filters{
-        justify-content:center;
-    }
-
-    .filters input{
-        width:100%;
-    }
-
-    .filters select{
-        width:48%;
-    }
-
     .container{
         grid-template-columns:1fr;
-        gap:20px;
     }
 }
 </style>
 </head>
-
 <body>
 
 <header>
@@ -216,13 +152,19 @@ footer{
 </footer>
 
 <script>
-function norm(s){
-    return s.toLowerCase()
+
+function normalizeText(s){
+    return (s || "")
+        .toLowerCase()
         .replace(/š/g,"s")
         .replace(/đ/g,"dj")
         .replace(/č/g,"c")
         .replace(/ć/g,"c")
-        .replace(/ž/g,"z");
+        .replace(/ž/g,"z")
+        .replace(/љ/g,"lj")
+        .replace(/њ/g,"nj")
+        .replace(/џ/g,"dz")
+        .replace(/[^a-z0-9]/g,"");
 }
 
 let allAlbums = [];
@@ -252,6 +194,37 @@ fetch("/api/albums")
 
     render(albums);
 });
+
+document.getElementById("search").addEventListener("input", applyFilters);
+document.getElementById("season").addEventListener("change", applyFilters);
+document.getElementById("sport").addEventListener("change", applyFilters);
+document.getElementById("category").addEventListener("change", applyFilters);
+
+function applyFilters(){
+
+    const searchVal = normalizeText(document.getElementById("search").value);
+    const seasonVal = document.getElementById("season").value;
+    const sportVal = document.getElementById("sport").value;
+    const categoryVal = document.getElementById("category").value;
+
+    const filtered = allAlbums.filter(a => {
+
+        const combinedText = normalizeText(
+            a.club1 + " " +
+            a.club2 + " " +
+            a.date
+        );
+
+        const matchSearch = searchVal === "" || combinedText.includes(searchVal);
+        const matchSeason = seasonVal === "" || a.season === seasonVal;
+        const matchCategory = categoryVal === "" || a.category === categoryVal;
+        const matchSport = sportVal === "" || sportVal === "fudbal";
+
+        return matchSearch && matchSeason && matchCategory && matchSport;
+    });
+
+    render(filtered);
+}
 
 function render(albums){
     const container = document.getElementById("albums");
@@ -299,13 +272,14 @@ function slide(i,dir){
     let offset = current?parseInt(current[0]):0;
     offset += dir*width;
     if(offset>0) offset=0;
-    if(offset<-width(track.children.length-1)) offset=-width*(track.children.length-1);
+    if(offset<-width*(track.children.length-1)) offset=-width*(track.children.length-1);
     track.style.transform=`translateX(${offset}px)`;
 }
 
 function openAlbum(name){
     window.location=`/album.html?name=${name}`;
 }
+
 </script>
 
 </body>
