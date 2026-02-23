@@ -48,7 +48,6 @@ header {
 .album-card {
     border:1px solid #eee;
     border-radius:8px;
-    margin-bottom:30px;
     overflow:hidden;
     background:#fff;
 }
@@ -111,13 +110,10 @@ footer {
     border-top:1px solid #eee;
     font-size:14px;
 }
+
 @media (max-width:900px){
     .container{
         grid-template-columns:1fr;
-    }
-
-    .thumb-track img{
-        height:240px;
     }
 }
 </style>
@@ -156,13 +152,19 @@ footer {
 </footer>
 
 <script>
-function norm(s){
-    return s.toLowerCase()
+
+function normalizeText(s){
+    return (s || "")
+        .toLowerCase()
         .replace(/š/g,"s")
         .replace(/đ/g,"dj")
         .replace(/č/g,"c")
         .replace(/ć/g,"c")
-        .replace(/ž/g,"z");
+        .replace(/ž/g,"z")
+        .replace(/љ/g,"lj")
+        .replace(/њ/g,"nj")
+        .replace(/џ/g,"dz")
+        .replace(/[^a-z0-9]/g,"");
 }
 
 let allAlbums = [];
@@ -192,6 +194,37 @@ fetch("/api/albums")
 
     render(albums);
 });
+
+document.getElementById("search").addEventListener("input", applyFilters);
+document.getElementById("season").addEventListener("change", applyFilters);
+document.getElementById("sport").addEventListener("change", applyFilters);
+document.getElementById("category").addEventListener("change", applyFilters);
+
+function applyFilters(){
+
+    const searchVal = normalizeText(document.getElementById("search").value);
+    const seasonVal = document.getElementById("season").value;
+    const sportVal = document.getElementById("sport").value;
+    const categoryVal = document.getElementById("category").value;
+
+    const filtered = allAlbums.filter(a => {
+
+        const combinedText = normalizeText(
+            a.club1 + " " +
+            a.club2 + " " +
+            a.date
+        );
+
+        const matchSearch = searchVal === "" || combinedText.includes(searchVal);
+        const matchSeason = seasonVal === "" || a.season === seasonVal;
+        const matchCategory = categoryVal === "" || a.category === categoryVal;
+        const matchSport = sportVal === "" || sportVal === "fudbal";
+
+        return matchSearch && matchSeason && matchCategory && matchSport;
+    });
+
+    render(filtered);
+}
 
 function render(albums){
     const container = document.getElementById("albums");
@@ -246,6 +279,7 @@ function slide(i,dir){
 function openAlbum(name){
     window.location=`/album.html?name=${name}`;
 }
+
 </script>
 
 </body>
