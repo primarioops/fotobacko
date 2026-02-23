@@ -124,8 +124,13 @@ button{
   line-height:1.5;
 }
 
-/* MOBILE /
-@media (max-width: 600px) {
+/* MOBILE 2 KOLONE - STABILNA VERZIJA /
+@media screen and (max-width: 768px){
+  .grid{
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap:12px;
+  }
+
   .pick{
     width:26px;
     height:26px;
@@ -136,31 +141,34 @@ button{
   }
 }
 
-@media screen and (hover: none){
-  .grid{
-    grid-template-columns: repeat(2, 1fr) !important;
-    gap:12px;
-  }
-}
-
-/ VIBER MODAL */
-#viberModal{
-  display:none;
+/ VIBER POPUP */
+.popup-overlay{
   position:fixed;
   inset:0;
-  background:rgba(0,0,0,0.5);
-  z-index:2000;
+  background:rgba(0,0,0,0.6);
+  display:none;
   align-items:center;
   justify-content:center;
+  z-index:999;
 }
 
-#viberModal .modal-box{
+.popup{
   background:#fff;
-  width:90%;
-  max-width:400px;
   padding:20px;
+  max-width:90%;
   border-radius:8px;
   text-align:center;
+}
+
+.popup textarea{
+  width:100%;
+  height:100px;
+  margin:10px 0;
+}
+
+.popup button{
+  margin-top:8px;
+  width:100%;
 }
 </style>
 </head>
@@ -195,28 +203,13 @@ button{
   </div>
 </div>
 
-<!-- VIBER MODAL -->
-<div id="viberModal">
-  <div class="modal-box">
-    <h3>Viber poruka</h3>
-    <p style="font-size:14px;">
-      Sledeća poruka će biti kopirana.<br>
-      Nakon otvaranja Vibera obavezno je <b>nalepite (PASTE)</b> i pošaljete.
-    </p>
-
-    <textarea id="viberMessagePreview"
-      style="width:100%; height:100px; margin:10px 0; font-size:13px; padding:8px;"
-      readonly></textarea>
-
-    <button onclick="copyAndOpenViber()" style="background:#7360F2;color:#fff;padding:10px 15px;border:none;border-radius:5px;cursor:pointer;">
-      Kopiraj i otvori Viber
-    </button>
-
-    <br><br>
-
-    <button onclick="closeViberModal()" style="background:#ccc;padding:6px 12px;border:none;border-radius:5px;cursor:pointer;">
-      Otkaži
-    </button>
+<!-- VIBER POPUP -->
+<div class="popup-overlay" id="popup">
+  <div class="popup">
+    <h3>Kopirajte poruku i nalepite u Viber</h3>
+    <textarea id="viberText" readonly></textarea>
+    <button onclick="copyText()">Kopiraj poruku</button>
+    <button onclick="openViber()">Otvori Viber</button>
   </div>
 </div>
 
@@ -229,6 +222,7 @@ const countText = document.getElementById("countText");
 const phone = "381644236630";
 
 let selected = [];
+let viberMessage = "";
 
 function updateCount(){
   countText.innerText = "Odabrano: " + selected.length;
@@ -237,7 +231,6 @@ function updateCount(){
 function togglePick(btn, num){
   const card = btn.parentElement;
   const selectedNow = card.classList.toggle("selected");
-
   btn.innerText = selectedNow ? "✓" : "+";
 
   if(selectedNow){
@@ -245,7 +238,6 @@ function togglePick(btn, num){
   }else{
     selected = selected.filter(n => n !== num);
   }
-
   updateCount();
 }
 
@@ -266,29 +258,22 @@ function send(type){
 
   if(type==="wa"){
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`);
-  }
-
-  if(type==="vi"){
-    document.getElementById("viberMessagePreview").value = message;
-    document.getElementById("viberModal").style.display = "flex";
+  }else{
+    viberMessage = message;
+    document.getElementById("viberText").value = message;
+    document.getElementById("popup").style.display="flex";
   }
 }
 
-function closeViberModal(){
-  document.getElementById("viberModal").style.display = "none";
+function copyText(){
+  const textArea = document.getElementById("viberText");
+  textArea.select();
+  document.execCommand("copy");
+  alert("Poruka je kopirana. Nakon otvaranja Vibera nalepite (Paste) poruku.");
 }
 
-function copyAndOpenViber(){
-  const message = document.getElementById("viberMessagePreview").value;
-
-  navigator.clipboard.writeText(message).then(()=>{
-    alert("Poruka je kopirana. U Viberu je obavezno nalepite (PASTE) i pošaljite.");
-    window.location.href = `viber://chat?number=%2B${phone}`;
-  }).catch(()=>{
-    alert("Kopiranje nije uspelo. Ručno kopirajte tekst.");
-  });
-
-  closeViberModal();
+function openViber(){
+  window.open(`viber://chat?number=%2B${phone}`);
 }
 
 fetch(`/api/albums`)
@@ -296,7 +281,9 @@ fetch(`/api/albums`)
 .then(albums=>{
   const a = albums.find(x=>x.name===album);
   if(a){
-    titleEl.innerText = `${a.date} ${a.club1} – ${a.club2} (${a.category}${a.extra ? " " + a.extra : ""})`.toUpperCase();
+    titleEl.innerText =
+      `${a.date} ${a.club1} – ${a.club2} (${a.category}${a.extra ? " " + a.extra : ""})`
+      .toUpperCase();
   }
 });
 
@@ -305,7 +292,6 @@ fetch(`/api/images/${album}`)
 .then(images=>{
   images.forEach(img=>{
     const num = parseInt(img.split("_")[0],10);
-
     const div = document.createElement("div");
     div.className="photo";
     div.innerHTML = `
