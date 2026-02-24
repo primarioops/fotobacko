@@ -213,12 +213,12 @@ if (afterVs.length) {
 
       albumsData.push({
         name: folder,
-        date: `${day}.${month}.${year}`,
+        date: `${day}.${month}.${year}.`,
         season,
         club1: club1.toUpperCase(),
         club2: club2.toUpperCase(),
         category: "",
-        extra: extra ? "(" + extra.toUpperCase() + ")" : "",
+        extra: extra.toUpperCase(),
         thumbnails
       });
     }
