@@ -171,25 +171,33 @@ app.get("/api/albums", async (req, res) => {
       const year = parts[2] || "";
 
       const vsIndex = parts.findIndex(p => norm(p) === "vs");
-      const beforeVs = vsIndex >= 0 ? parts.slice(3, vsIndex) : parts.slice(3, parts.length - 1);
-      const afterVs = vsIndex >= 0 ? parts.slice(vsIndex + 1) : parts.slice(parts.length - 1);
 
-      const club1 = beforeVs.join(" ").trim();
+const beforeVs = vsIndex >= 0
+  ? parts.slice(3, vsIndex)
+  : parts.slice(3);
 
-      let club2 = "";
-      let category = "";
-      let extra = "";
+const afterVs = vsIndex >= 0
+  ? parts.slice(vsIndex + 1)
+  : [];
 
-      if (vsIndex >= 0 && afterVs.length) {
-        const catIdx = findCategoryIndex(afterVs);
-        club2 = afterVs.slice(0, catIdx).join(" ").trim();
-        category = (afterVs[catIdx] || "").trim();
-        extra = afterVs.slice(catIdx + 1).join(" ").trim();
-      } else {
-        club2 = "";
-        category = (afterVs[0] || "").trim();
-        extra = "";
-      }
+const club1 = beforeVs.join(" ").trim();
+
+let club2 = "";
+let extra = "";
+
+if (afterVs.length) {
+
+  const separatorIndex = afterVs.findIndex(p => p === "");
+
+  // Tražimo "--" separator (prazan string nastaje kod duple crtice)
+  if (separatorIndex !== -1) {
+    club2 = afterVs.slice(0, separatorIndex).join(" ").trim();
+    extra = afterVs.slice(separatorIndex + 1).join(" ").trim();
+  } else {
+    club2 = afterVs.join(" ").trim();
+    extra = "";
+  }
+}
 
       const season = getSeason(year, month);
 
@@ -209,8 +217,8 @@ app.get("/api/albums", async (req, res) => {
         season,
         club1: club1.toUpperCase(),
         club2: club2.toUpperCase(),
-        category: category.toUpperCase(),
-        extra: extra.toUpperCase(),
+        category: "",
+        extra: extra ? "(" + extra.toUpperCase() + ")" : "",
         thumbnails
       });
     }
