@@ -10,54 +10,85 @@
 
   <p style="margin-top: 20px;">
     <label><b>Album (folder u R2):</b></label><br/>
-    <input id="album" style="width: 100%; padding: 10px; font-size: 16px;"
-           placeholder='npr: 24-02-2026-FOTO-BAČKO-vs-NEKO-pioniri' />
+    <input id="album"
+           style="width: 100%; padding: 10px; font-size: 16px;"
+           placeholder='npr: 24-02-2026-FOTO-BACKO-vs-NEKO-pioniri' />
   </p>
 
   <p>
-    <label><b>Izaberi fajl:</b></label><br/>
-    <input id="file" type="file" accept="image/*" />
+    <label><b>Izaberi folder sa slikama:</b></label><br/>
+    <input id="file"
+           type="file"
+           accept="image/*"
+           webkitdirectory
+           directory
+           multiple />
   </p>
 
   <p>
-    <button id="btn" style="padding: 10px 14px; font-size: 16px;">Upload</button>
+    <button id="btn"
+            style="padding: 10px 14px; font-size: 16px;">
+      Upload
+    </button>
   </p>
 
-  <pre id="out" style="background:#f5f5f5; padding: 12px; white-space: pre-wrap;"></pre>
+  <pre id="out"
+       style="background:#f5f5f5; padding: 12px; white-space: pre-wrap;"></pre>
 
   <script>
     const out = document.getElementById("out");
 
     document.getElementById("btn").addEventListener("click", async () => {
+
       const album = document.getElementById("album").value.trim();
       const fileInput = document.getElementById("file");
-      const file = fileInput.files[0];
+      const files = fileInput.files;
 
-      if (!album) { out.textContent = "Unesi album (ime foldera u R2)."; return; }
-      if (!file) { out.textContent = "Izaberi sliku."; return; }
+      if (!album) {
+        out.textContent = "Unesi album.";
+        return;
+      }
+
+      if (!files.length) {
+        out.textContent = "Izaberi folder sa slikama.";
+        return;
+      }
 
       const pass = prompt("Unesi ADMIN_PASSWORD:");
-      if (!pass) { out.textContent = "Otkazano."; return; }
-
-      const fd = new FormData();
-      fd.append("album", album);
-      fd.append("file", file);
+      if (!pass) {
+        out.textContent = "Otkazano.";
+        return;
+      }
 
       out.textContent = "Upload u toku...";
 
-      const resp = await fetch("/api/admin/upload", {
-        method: "POST",
-        headers: { "x-admin-password": pass },
-        body: fd
-      });
+      for (let i = 0; i < files.length; i++) {
 
-      const data = await resp.json().catch(() => ({}));
-      if (resp.ok) {
-        out.textContent = "✅ OK\n\n" + JSON.stringify(data, null, 2) +
-          "\n\nSada osveži početnu stranu sajta (ili album) da vidiš novu sliku.";
-      } else {
-        out.textContent = "❌ GREŠKA\n\n" + JSON.stringify(data, null, 2);
+        const fd = new FormData();
+        fd.append("album", album);
+
+        // Uzimamo samo ime fajla bez putanje
+        const file = files[i];
+        const cleanFile = new File([file], file.name, { type: file.type });
+
+        fd.append("file", cleanFile);
+
+        const resp = await fetch("/api/admin/upload", {
+          method: "POST",
+          headers: { "x-admin-password": pass },
+          body: fd
+        });
+
+        if (!resp.ok) {
+          const err = await resp.text();
+          out.textContent =
+            "Greška kod fajla: " + file.name + "\n\n" + err;
+          return;
+        }
       }
+
+      out.textContent =
+        "✅ Ceo folder je uploadovan.\n\nOsveži stranicu albuma.";
     });
   </script>
 </body>
