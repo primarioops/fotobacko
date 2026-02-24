@@ -5,6 +5,7 @@ const {
   S3Client,
   ListObjectsV2Command,
   GetObjectCommand,
+  PutObjectCommand,
 } = require("@aws-sdk/client-s3");
 
 const app = express();
@@ -26,7 +27,7 @@ const secretAccessKey = (
 ).trim();
 
 const R2_ENDPOINT = (process.env.R2_ENDPOINT || "").trim();
-
+const ADMIN_PASSWORD = (process.env.ADMIN_PASSWORD || "").trim();
 if (!R2_BUCKET) {
   throw new Error("Missing env: R2_BUCKET");
 }
@@ -38,7 +39,9 @@ if (!accessKeyId || !secretAccessKey) {
     "Missing R2 credentials. Check AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY or R2_ACCESS_KEY/R2_SECRET_KEY in Render."
   );
 }
-
+if (!ADMIN_PASSWORD) {
+  throw new Error("Missing env: ADMIN_PASSWORD");
+}
 const s3 = new S3Client({
   region: "auto",
   endpoint: R2_ENDPOINT,
@@ -47,7 +50,16 @@ const s3 = new S3Client({
 
 // ====== static frontend ======
 app.use(express.static(path.join(__dirname, "public")));
+// ====== admin auth (simple) ======
+function requireAdmin(req, res, next) {
+  // očekujemo header: x-admin-password: <tvoja_lozinka>
+  const pass = String(req.headers["x-admin-password"] || "").trim();
 
+  if (!pass || pass !== ADMIN_PASSWORD) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+  next();
+}
 // ====== helpers ======
 const CATEGORY_LIST = [
   "pretpetlići","pretpetlici",
