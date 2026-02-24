@@ -283,7 +283,40 @@ app.get("/albums/:album/:file", async (req, res) => {
     res.status(404).send("Not found");
   }
 });
+// ====== ADMIN: upload image to R2 ======
+app.post(
+  "/api/admin/upload",
+  requireAdmin,
+  upload.single("file"),
+  async (req, res) => {
+    try {
+      const album = String(req.body.album || "").trim();
+      if (!album) return res.status(400).json({ error: "Missing album" });
 
+      if (!req.file) return res.status(400).json({ error: "Missing file" });
+
+      const original = String(req.file.originalname || "upload.jpg");
+      const safeName = original.replace(/[^a-zA-Z0-9.-]/g, "");
+
+      const key = `${album}/${safeName}`;
+
+      await s3.send(
+        new PutObjectCommand({
+          Bucket: R2_BUCKET,
+          Key: key,
+          Body: req.file.buffer,
+          ContentType: req.file.mimetype || "application/octet-stream",
+          CacheControl: "public, max-age=31536000, immutable",
+        })
+      );
+
+      res.json({ ok: true, key });
+    } catch (e) {
+      console.error("Upload error:", e);
+      res.status(500).json({ error: "Upload failed" });
+    }
+  }
+);
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`Foto Backo server radi na http://localhost:${PORT}`);
 });
