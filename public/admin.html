@@ -25,6 +25,7 @@
         style="padding: 10px 14px; font-size: 16px;">
 Upload
 </button>
+
 <button id="deleteBtn"
         style="padding: 10px 14px; font-size: 16px; margin-left:10px; background:#c0392b; color:white;">
 Obriši ceo album
@@ -33,6 +34,76 @@ Obriši ceo album
 
 <pre id="out"
      style="background:#f5f5f5; padding: 12px; white-space: pre-wrap;"></pre>
+
+<script>
+const out = document.getElementById("out");
+
+// ================= UPLOAD =================
+document.getElementById("btn").addEventListener("click", async () => {
+
+  const fileInput = document.getElementById("file");
+  const files = fileInput.files;
+
+  if (!files.length) {
+    out.textContent = "Izaberi folder sa slikama.";
+    return;
+  }
+
+  const pass = prompt("Unesi ADMIN_PASSWORD:");
+  if (!pass) {
+    out.textContent = "Otkazano.";
+    return;
+  }
+
+  const firstPath = files[0].webkitRelativePath;
+  const album = firstPath.split("/")[0];
+
+  out.textContent = "Album: " + album + "\n\nUpload u toku...\n";
+
+  const CONCURRENCY = 5;
+  let completed = 0;
+
+  async function uploadFile(file) {
+    const fd = new FormData();
+    fd.append("album", album);
+
+    const cleanFile = new File([file], file.name, { type: file.type });
+    fd.append("file", cleanFile);
+
+    const resp = await fetch("/api/admin/upload", {
+      method: "POST",
+      headers: { "x-admin-password": pass },
+      body: fd
+    });
+
+    if (!resp.ok) {
+      const err = await resp.text();
+      throw new Error("Greška kod fajla: " + file.name + "\n" + err);
+    }
+
+    completed++;
+    out.textContent =
+      "Album: " + album + "\n" +
+      "Upload " + completed + " / " + files.length;
+  }
+
+  try {
+    for (let i = 0; i < files.length; i += CONCURRENCY) {
+      const chunk = Array.from(files).slice(i, i + CONCURRENCY);
+      await Promise.all(chunk.map(uploadFile));
+    }
+
+    out.textContent =
+      "✅ Ceo folder je uploadovan.\n\nAlbum: " + album +
+      "\n\nOsveži stranicu sajta.";
+
+  } catch (err) {
+    out.textContent = err.message;
+  }
+
+});
+
+// ================= DELETE =================
 document.getElementById("deleteBtn").addEventListener("click", async () => {
 
   const fileInput = document.getElementById("file");
@@ -80,72 +151,6 @@ document.getElementById("deleteBtn").addEventListener("click", async () => {
     out.textContent =
       "Greška pri brisanju:\n\n" +
       JSON.stringify(data, null, 2);
-  }
-
-});
-<script>
-const out = document.getElementById("out");
-
-document.getElementById("btn").addEventListener("click", async () => {
-
-  const fileInput = document.getElementById("file");
-  const files = fileInput.files;
-
-  if (!files.length) {
-    out.textContent = "Izaberi folder sa slikama.";
-    return;
-  }
-
-  const pass = prompt("Unesi ADMIN_PASSWORD:");
-  if (!pass) {
-    out.textContent = "Otkazano.";
-    return;
-  }
-
-  const firstPath = files[0].webkitRelativePath;
-  const album = firstPath.split("/")[0];
-
-  out.textContent = "Album: " + album + "\n\nUpload u toku...\n";
-
-  const CONCURRENCY = 5; // koliko slika ide paralelno
-  let completed = 0;
-
-  async function uploadFile(file) {
-    const fd = new FormData();
-    fd.append("album", album);
-
-    const cleanFile = new File([file], file.name, { type: file.type });
-    fd.append("file", cleanFile);
-
-    const resp = await fetch("/api/admin/upload", {
-      method: "POST",
-      headers: { "x-admin-password": pass },
-      body: fd
-    });
-
-    if (!resp.ok) {
-      const err = await resp.text();
-      throw new Error("Greška kod fajla: " + file.name + "\n" + err);
-    }
-
-    completed++;
-    out.textContent =
-      "Album: " + album + "\n" +
-      "Upload " + completed + " / " + files.length;
-  }
-
-  try {
-    for (let i = 0; i < files.length; i += CONCURRENCY) {
-      const chunk = Array.from(files).slice(i, i + CONCURRENCY);
-      await Promise.all(chunk.map(uploadFile));
-    }
-
-    out.textContent =
-      "✅ Ceo folder je uploadovan.\n\nAlbum: " + album +
-      "\n\nOsveži stranicu sajta.";
-
-  } catch (err) {
-    out.textContent = err.message;
   }
 
 });
