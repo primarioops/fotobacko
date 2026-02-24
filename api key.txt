@@ -1,0 +1,27 @@
+Create Account API Token
+render-access was successfully created
+Summary:
+Permissions:
+
+Allows the ability to read, write, and list objects in specific buckets.
+Buckets:
+fotobacko
+
+token value
+
+n3elUDgSPfynqO_asxiZb3LvyyL4vFfNCOLLhfVQ
+
+access key ID
+
+d0046647bdbe0480c0d16e70061702ff
+
+secret access key
+
+bee17f534733b202004eda57a9b11d5055968bb45adf773ad832418e41ffa0f0
+
+Use jurisdiction-specific endpoints for S3 clients:
+
+https://34e3d2032a1f6cd5a1d38cbe4bdc6b8d.r2.cloudflarestorage.com
+
+
+https://34e3d2032a1f6cd5a1d38cbe4bdc6b8d.r2.cloudflarestorage.com

@@ -1,15 +1,25 @@
 const express = require("express");
 const path = require("path");
-const fs = require("fs");
+const { S3Client, ListObjectsV2Command } = require("@aws-sdk/client-s3");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-const albumsPath = path.join(__dirname, "albums");
-
 app.use(express.static(path.join(__dirname, "public")));
-app.use("/albums", express.static(albumsPath));
 
+// ===== R2 CONFIG =====
+const s3 = new S3Client({
+  region: "auto",
+  endpoint: process.env.R2_ENDPOINT,
+  credentials: {
+    accessKeyId: process.env.R2_ACCESS_KEY_ID,
+    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+  },
+});
+
+const BUCKET = process.env.R2_BUCKET;
+
+// ===== CATEGORY LIST =====
 const CATEGORY_LIST = [
   "pretpetlići","pretpetlici",
   "petlići","petlici",
@@ -45,128 +55,107 @@ function getSeason(year, month) {
 }
 
 function findCategoryIndex(partsAfterVs) {
-  // Tražimo kategoriju s kraja (prva koja liči na kategoriju)
   for (let i = partsAfterVs.length - 1; i >= 0; i--) {
     const cand = norm(partsAfterVs[i]);
     if (CATEGORY_LIST.includes(cand)) return i;
   }
-  // fallback: poslednji token kao kategorija
   return Math.max(partsAfterVs.length - 1, 0);
 }
 
-function pickThumb(files, base) {
-  // prihvata a.jpg / a.JPG / a.jpeg / a.png
-  const lower = files.map(f => f.toLowerCase());
-  const candidates = [`${base}.jpg`, `${base}.jpeg`, `${base}.png`];
-  for (const c of candidates) {
-    const idx = lower.indexOf(c);
-    if (idx >= 0) return files[idx];
-  }
-  return null;
-}
-
-app.get("/api/albums", (req, res) => {
-  let folders;
+// ===== API: LIST ALBUMS =====
+app.get("/api/albums", async (req, res) => {
   try {
-    folders = fs.readdirSync(albumsPath, { withFileTypes: true })
-      .filter(d => d.isDirectory())
-      .map(d => d.name);
-  } catch (e) {
-    return res.status(500).json({ error: "Greška pri čitanju albuma" });
+    const command = new ListObjectsV2Command({
+      Bucket: BUCKET,
+      Delimiter: "/",
+    });
+
+    const data = await s3.send(command);
+    const folders = (data.CommonPrefixes || []).map(p =>
+      p.Prefix.replace("/", "")
+    );
+
+    const albumsData = folders.map(folder => {
+      const parts = folder.split("-");
+
+      const day = parts[0] || "";
+      const month = parts[1] || "";
+      const year = parts[2] || "";
+
+      const vsIndex = parts.findIndex(p => norm(p) === "vs");
+      const beforeVs = vsIndex >= 0 ? parts.slice(3, vsIndex) : [];
+      const afterVs = vsIndex >= 0 ? parts.slice(vsIndex + 1) : [];
+
+      const club1 = beforeVs.join(" ").trim();
+
+      let club2 = "";
+      let category = "";
+      let extra = "";
+
+      if (afterVs.length) {
+        const catIdx = findCategoryIndex(afterVs);
+        club2 = afterVs.slice(0, catIdx).join(" ").trim();
+        category = (afterVs[catIdx] || "").trim();
+        extra = afterVs.slice(catIdx + 1).join(" ").trim();
+      }
+
+      const season = getSeason(year, month);
+
+      return {
+        name: folder,
+        date: `${day}.${month}.${year}`,
+        season,
+        club1: club1.toUpperCase(),
+        club2: club2.toUpperCase(),
+        category: category.toUpperCase(),
+        extra: extra.toUpperCase(),
+        thumbnails: [
+          `https://${BUCKET}.${process.env.R2_PUBLIC_DOMAIN}/${folder}/a.jpg`,
+          `https://${BUCKET}.${process.env.R2_PUBLIC_DOMAIN}/${folder}/b.jpg`,
+          `https://${BUCKET}.${process.env.R2_PUBLIC_DOMAIN}/${folder}/c.jpg`,
+        ]
+      };
+    });
+
+    albumsData.sort((a, b) => {
+      const dateA = new Date(a.date.split(".").reverse().join("-"));
+      const dateB = new Date(b.date.split(".").reverse().join("-"));
+      return dateB - dateA;
+    });
+
+    res.json(albumsData);
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Greška pri čitanju albuma iz R2" });
   }
-
-  const albumsData = folders.map((folder) => {
-    // format: DD-MM-YYYY-<club1...>-vs-<club2...>-<category>-<extra...>
-    const parts = folder.split("-");
-
-    const day = parts[0] || "";
-    const month = parts[1] || "";
-    const year = parts[2] || "";
-
-    const vsIndex = parts.findIndex(p => norm(p) === "vs");
-    const beforeVs = vsIndex >= 0 ? parts.slice(3, vsIndex) : parts.slice(3, parts.length - 1);
-    const afterVs = vsIndex >= 0 ? parts.slice(vsIndex + 1) : parts.slice(parts.length - 1);
-
-    const club1 = beforeVs.join(" ").trim();
-
-    let club2 = "";
-    let category = "";
-    let extra = "";
-
-    if (vsIndex >= 0 && afterVs.length) {
-      const catIdx = findCategoryIndex(afterVs);
-      club2 = afterVs.slice(0, catIdx).join(" ").trim();
-      category = (afterVs[catIdx] || "").trim();
-      extra = afterVs.slice(catIdx + 1).join(" ").trim();
-    } else {
-      // fallback minimalno
-      club2 = "";
-      category = (afterVs[0] || "").trim();
-      extra = "";
-    }
-
-    const season = getSeason(year, month);
-
-    let files = [];
-    try {
-      files = fs.readdirSync(path.join(albumsPath, folder));
-    } catch {}
-
-    const a = pickThumb(files, "a");
-    const b = pickThumb(files, "b");
-    const c = pickThumb(files, "c");
-
-    const thumbnails = [a, b, c]
-      .filter(Boolean)
-      .map(f => `/albums/${folder}/${f}`);
-
-    return {
-      name: folder,
-      date: `${day}.${month}.${year}`,
-      season,
-      club1: club1.toUpperCase(),
-      club2: club2.toUpperCase(),
-      category: category.toUpperCase(),
-      extra: extra.toUpperCase(),
-      thumbnails
-    };
-  });
-
-  albumsData.sort((a, b) => {
-    const dateA = new Date(a.date.split(".").reverse().join("-"));
-    const dateB = new Date(b.date.split(".").reverse().join("-"));
-    return dateB - dateA;
-  });
-
-  res.json(albumsData);
 });
 
-app.get("/api/images/:album", (req, res) => {
-  const albumName = req.params.album;
-  const albumPath = path.join(albumsPath, albumName);
+// ===== API: LIST IMAGES =====
+app.get("/api/images/:album", async (req, res) => {
+  const album = req.params.album;
 
-  if (!fs.existsSync(albumPath)) {
-    return res.status(404).json({ error: "Album ne postoji" });
-  }
-
-  let files;
   try {
-    files = fs.readdirSync(albumPath);
-  } catch (e) {
-    return res.status(500).json({ error: "Greška pri čitanju slika" });
+    const command = new ListObjectsV2Command({
+      Bucket: BUCKET,
+      Prefix: `${album}/`,
+    });
+
+    const data = await s3.send(command);
+
+    const images = (data.Contents || [])
+      .map(obj => obj.Key.replace(`${album}/`, ""))
+      .filter(name =>
+        name &&
+        !["a.jpg","b.jpg","c.jpg"].includes(name.toLowerCase())
+      );
+
+    res.json(images);
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Greška pri čitanju slika iz R2" });
   }
-
-  const images = files.filter(f => {
-    const low = f.toLowerCase();
-    if (!(low.endsWith(".jpg") || low.endsWith(".jpeg") || low.endsWith(".png"))) return false;
-    // preskoči thumbnailove a/b/c
-    if (low === "a.jpg" || low === "a.jpeg" || low === "a.png") return false;
-    if (low === "b.jpg" || low === "b.jpeg" || low === "b.png") return false;
-    if (low === "c.jpg" || low === "c.jpeg" || low === "c.png") return false;
-    return true;
-  });
-
-  res.json(images);
 });
 
 app.listen(PORT, "0.0.0.0", () => {
