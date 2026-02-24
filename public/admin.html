@@ -25,11 +25,64 @@
         style="padding: 10px 14px; font-size: 16px;">
 Upload
 </button>
+<button id="deleteBtn"
+        style="padding: 10px 14px; font-size: 16px; margin-left:10px; background:#c0392b; color:white;">
+Obriši ceo album
+</button>
 </p>
 
 <pre id="out"
      style="background:#f5f5f5; padding: 12px; white-space: pre-wrap;"></pre>
+document.getElementById("deleteBtn").addEventListener("click", async () => {
 
+  const fileInput = document.getElementById("file");
+  const files = fileInput.files;
+
+  if (!files.length) {
+    out.textContent = "Izaberi folder (da bi sistem znao koji album brišeš).";
+    return;
+  }
+
+  const firstPath = files[0].webkitRelativePath;
+  const album = firstPath.split("/")[0];
+
+  const confirmDelete = confirm(
+    "Da li si SIGURAN da želiš da obrišeš ceo album?\n\n" + album
+  );
+
+  if (!confirmDelete) return;
+
+  const pass = prompt("Unesi ADMIN_PASSWORD:");
+  if (!pass) {
+    out.textContent = "Otkazano.";
+    return;
+  }
+
+  out.textContent = "Brisanje u toku...";
+
+  const resp = await fetch("/api/admin/album", {
+    method: "DELETE",
+    headers: {
+      "Content-Type": "application/json",
+      "x-admin-password": pass
+    },
+    body: JSON.stringify({ album })
+  });
+
+  const data = await resp.json().catch(() => ({}));
+
+  if (resp.ok) {
+    out.textContent =
+      "🗑 Album obrisan.\n\n" +
+      "Album: " + album + "\n" +
+      "Obrisano fajlova: " + data.deleted;
+  } else {
+    out.textContent =
+      "Greška pri brisanju:\n\n" +
+      JSON.stringify(data, null, 2);
+  }
+
+});
 <script>
 const out = document.getElementById("out");
 
