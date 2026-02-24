@@ -1,6 +1,6 @@
 const express = require("express");
 const path = require("path");
-
+const multer = require("multer");
 const {
   S3Client,
   ListObjectsV2Command,
@@ -50,6 +50,7 @@ const s3 = new S3Client({
 
 // ====== static frontend ======
 app.use(express.static(path.join(__dirname, "public")));
+
 // ====== admin auth (simple) ======
 function requireAdmin(req, res, next) {
   // očekujemo header: x-admin-password: <tvoja_lozinka>
@@ -60,6 +61,11 @@ function requireAdmin(req, res, next) {
   }
   next();
 }
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 25 * 1024 * 1024 } // 25MB
+});
 // ====== helpers ======
 const CATEGORY_LIST = [
   "pretpetlići","pretpetlici",
