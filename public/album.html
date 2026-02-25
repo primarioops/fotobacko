@@ -276,7 +276,7 @@ function openViber(){
   window.open(`viber://chat?number=%2B${phone}`);
 }
 
-fetch(`/api/albums`)
+fetch(`/api/images?name=${encodeURIComponent(album)}`)
 .then(r=>r.json())
 .then(albums=>{
   const a = albums.find(x=>x.name===album);
