@@ -25,15 +25,14 @@ header {
 .filters {
     max-width:1200px;
     margin:30px auto;
-    display:flex;
-    gap:15px;
-    flex-wrap:wrap;
     padding:0 20px;
 }
 
-.filters input, .filters select {
+.filters input {
     padding:10px;
     font-size:14px;
+    width:100%;
+    max-width:400px;
 }
 
 .container {
@@ -130,19 +129,6 @@ footer {
 
 <div class="filters">
     <input type="text" id="search" placeholder="Pretraga kluba...">
-
-    <select id="season">
-        <option value="">Sve sezone</option>
-    </select>
-
-    <select id="sport">
-        <option value="fudbal" selected>Fudbal</option>
-        <option value="ostalo">Ostalo</option>
-    </select>
-
-    <select id="category">
-        <option value="">Sve kategorije</option>
-    </select>
 </div>
 
 <div class="container" id="albums"></div>
@@ -173,39 +159,14 @@ fetch("/api/albums")
 .then(r=>r.json())
 .then(albums=>{
     allAlbums = albums;
-
-    const seasonSet = new Set();
-    const catSet = new Set();
-
-    albums.forEach(a=>{
-        if(a.season) seasonSet.add(a.season);
-        if(a.category) catSet.add(a.category);
-    });
-
-    const seasonSelect = document.getElementById("season");
-    [...seasonSet].sort().forEach(s=>{
-        seasonSelect.innerHTML += `<option value="${s}">${s}</option>`;
-    });
-
-    const catSelect = document.getElementById("category");
-    [...catSet].forEach(c=>{
-        catSelect.innerHTML += `<option value="${c}">${c}</option>`;
-    });
-
     render(albums);
 });
 
 document.getElementById("search").addEventListener("input", applyFilters);
-document.getElementById("season").addEventListener("change", applyFilters);
-document.getElementById("sport").addEventListener("change", applyFilters);
-document.getElementById("category").addEventListener("change", applyFilters);
 
 function applyFilters(){
 
     const searchVal = normalizeText(document.getElementById("search").value);
-    const seasonVal = document.getElementById("season").value;
-    const sportVal = document.getElementById("sport").value;
-    const categoryVal = document.getElementById("category").value;
 
     const filtered = allAlbums.filter(a => {
 
@@ -215,12 +176,7 @@ function applyFilters(){
             a.date
         );
 
-        const matchSearch = searchVal === "" || combinedText.includes(searchVal);
-        const matchSeason = seasonVal === "" || a.season === seasonVal;
-        const matchCategory = categoryVal === "" || a.category === categoryVal;
-        const matchSport = sportVal === "" || sportVal === "fudbal";
-
-        return matchSearch && matchSeason && matchCategory && matchSport;
+        return searchVal === "" || combinedText.includes(searchVal);
     });
 
     render(filtered);
