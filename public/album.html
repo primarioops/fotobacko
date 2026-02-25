@@ -124,7 +124,6 @@ button{
   line-height:1.5;
 }
 
-/* MOBILE 2 KOLONE - STABILNA VERZIJA */
 @media screen and (max-width: 768px){
   .grid{
     grid-template-columns: repeat(2, 1fr) !important;
@@ -140,36 +139,6 @@ button{
     box-shadow:none;
   }
 }
-
-/* VIBER POPUP */
-.popup-overlay{
-  position:fixed;
-  inset:0;
-  background:rgba(0,0,0,0.6);
-  display:none;
-  align-items:center;
-  justify-content:center;
-  z-index:999;
-}
-
-.popup{
-  background:#fff;
-  padding:20px;
-  max-width:90%;
-  border-radius:8px;
-  text-align:center;
-}
-
-.popup textarea{
-  width:100%;
-  height:100px;
-  margin:10px 0;
-}
-
-.popup button{
-  margin-top:8px;
-  width:100%;
-}
 </style>
 </head>
 
@@ -181,102 +150,13 @@ button{
 <div class="grid" id="grid"></div>
 </div>
 
-<div class="scroll-btn scroll-top" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑</div>
-<div class="scroll-btn scroll-bottom" onclick="window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'})">↓</div>
-
-<div class="bottom-bar">
-  <div class="bottom-inner">
-    <div>
-      <div class="count" id="countText">Odabrano: 0</div>
-      <div class="footer-text">
-        Odaberite fotografije klikom na +.
-        Klikom na WhatsApp ili Viber NE kupujete automatski fotografije,
-        već započinjete kontakt radi dogovora.
-      </div>
-    </div>
-
-    <div class="buttons">
-      <button class="reset" onclick="resetSelection()">Poništi sve</button>
-      <button class="wa" onclick="send('wa')">WhatsApp</button>
-      <button class="viber" onclick="send('vi')">Viber</button>
-    </div>
-  </div>
-</div>
-
-<!-- VIBER POPUP -->
-<div class="popup-overlay" id="popup">
-  <div class="popup">
-    <h3>Kopirajte poruku i nalepite u Viber</h3>
-    <textarea id="viberText" readonly></textarea>
-    <button onclick="copyText()">Kopiraj poruku</button>
-    <button onclick="openViber()">Otvori Viber</button>
-  </div>
-</div>
-
 <script>
 const params = new URLSearchParams(location.search);
 const album = params.get("name");
 const grid = document.getElementById("grid");
 const titleEl = document.getElementById("title");
-const countText = document.getElementById("countText");
-const phone = "381644236630";
 
-let selected = [];
-let viberMessage = "";
-
-function updateCount(){
-  countText.innerText = "Odabrano: " + selected.length;
-}
-
-function togglePick(btn, num){
-  const card = btn.parentElement;
-  const selectedNow = card.classList.toggle("selected");
-  btn.innerText = selectedNow ? "✓" : "+";
-
-  if(selectedNow){
-    selected.push(num);
-  }else{
-    selected = selected.filter(n => n !== num);
-  }
-  updateCount();
-}
-
-function resetSelection(){
-  selected = [];
-  document.querySelectorAll(".photo").forEach(p=>{
-    p.classList.remove("selected");
-    p.querySelector(".pick").innerText = "+";
-  });
-  updateCount();
-}
-
-function send(type){
-  if(selected.length === 0) return;
-
-  selected.sort((a,b)=>a-b);
-  const message = titleEl.innerText + "\n" + selected.join(" ");
-
-  if(type==="wa"){
-    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`);
-  }else{
-    viberMessage = message;
-    document.getElementById("viberText").value = message;
-    document.getElementById("popup").style.display="flex";
-  }
-}
-
-function copyText(){
-  const textArea = document.getElementById("viberText");
-  textArea.select();
-  document.execCommand("copy");
-  alert("Poruka je kopirana. Nakon otvaranja Vibera nalepite (Paste) poruku.");
-}
-
-function openViber(){
-  window.open(`viber://chat?number=%2B${phone}`);
-}
-
-fetch(`/api/images?name=${encodeURIComponent(album)}`)
+fetch(`/api/albums`)
 .then(r=>r.json())
 .then(albums=>{
   const a = albums.find(x=>x.name===album);
@@ -287,16 +167,19 @@ fetch(`/api/images?name=${encodeURIComponent(album)}`)
   }
 });
 
+fetch(`/api/images?name=${encodeURIComponent(album)}`)
 .then(r=>r.json())
 .then(images=>{
   images.forEach(img=>{
     const num = parseInt(img.split("_")[0],10);
     const div = document.createElement("div");
     div.className="photo";
+
     div.innerHTML = `
-      <img src="/albums/${album}/${img}" loading="lazy">
+      <img src="/albums/${encodeURIComponent(album)}/${encodeURIComponent(img)}" loading="lazy">
       <div class="pick" onclick="togglePick(this, ${num})">+</div>
     `;
+
     grid.appendChild(div);
   });
 });
