@@ -150,7 +150,6 @@ function keyToAlbumsUrl(key) {
 // ====== API: list albums from R2 prefixes ======
 app.get("/api/albums", async (req, res) => {
   try {
-    // list "folders" (prefixes) at bucket root
     const resp = await s3.send(
       new ListObjectsV2Command({
         Bucket: R2_BUCKET,
@@ -162,8 +161,8 @@ app.get("/api/albums", async (req, res) => {
       .map(p => (p.Prefix || "").replace(/\/$/, ""))
       .filter(Boolean);
 
-    // Za svaki folder, uzmi listu fajlova (da nađeš a/b/c thumbnailove)
     const albumsData = [];
+
     for (const folder of folders) {
       const parts = folder.split("-");
 
@@ -173,36 +172,48 @@ app.get("/api/albums", async (req, res) => {
 
       const vsIndex = parts.findIndex(p => norm(p) === "vs");
 
-const beforeVs = vsIndex >= 0
-  ? parts.slice(3, vsIndex)
-  : parts.slice(3);
+      const beforeVs = vsIndex >= 0
+        ? parts.slice(3, vsIndex)
+        : parts.slice(3);
 
-const afterVs = vsIndex >= 0
-  ? parts.slice(vsIndex + 1)
-  : [];
+      const afterVs = vsIndex >= 0
+        ? parts.slice(vsIndex + 1)
+        : [];
 
-const club1 = beforeVs.join(" ").trim();
+      const club1 = beforeVs.join(" ").trim();
 
-let club2 = "";
-let extra = "";
+      let club2 = "";
+      let extra = "";
 
-if (afterVs.length) {
+      if (afterVs.length) {
+        const separatorIndex = afterVs.findIndex(p => p === "");
 
-  const separatorIndex = afterVs.findIndex(p => p === "");
-
-  // Tražimo "--" separator (prazan string nastaje kod duple crtice)
-  if (separatorIndex !== -1) {
-    club2 = afterVs.slice(0, separatorIndex).join(" ").trim();
-    extra = afterVs.slice(separatorIndex + 1).join(" ").trim();
-  } else {
-    club2 = afterVs.join(" ").trim();
-    extra = "";
-  }
-}
+        if (separatorIndex !== -1) {
+          club2 = afterVs.slice(0, separatorIndex).join(" ").trim();
+          extra = afterVs.slice(separatorIndex + 1).join(" ").trim();
+        } else {
+          club2 = afterVs.join(" ").trim();
+          extra = "";
+        }
+      }
 
       const season = getSeason(year, month);
 
       const keys = await listAllKeys(folder + "/");
+
+      // 🔥 NOVO: preskoči folder ako nema nijednu pravu sliku
+      const hasImages = keys.some(k => {
+        const low = k.toLowerCase();
+        return (
+          low.endsWith(".jpg") ||
+          low.endsWith(".jpeg") ||
+          low.endsWith(".png")
+        );
+      });
+
+      if (!hasImages) {
+        continue; // preskoči prazan album
+      }
 
       const aKey = pickThumbFromKeys(keys, "a");
       const bKey = pickThumbFromKeys(keys, "b");
@@ -234,34 +245,6 @@ if (afterVs.length) {
   } catch (e) {
     console.error("R2 albums error:", e);
     res.status(500).json({ error: "Greška pri čitanju albuma iz R2" });
-  }
-});
-
-// ====== API: list images for album from R2 ======
-app.get("/api/images/:album", async (req, res) => {
-  try {
-    const albumName = decodeURIComponent(req.params.album || "");
-    if (!albumName) return res.status(400).json({ error: "Album nije validan" });
-
-    const keys = await listAllKeys(albumName + "/");
-    if (!keys.length) return res.status(404).json({ error: "Album ne postoji" });
-
-    const images = keys
-      .filter(k => {
-        const low = k.toLowerCase();
-        if (!(low.endsWith(".jpg") || low.endsWith(".jpeg") || low.endsWith(".png"))) return false;
-        // preskoči a/b/c
-        if (low.endsWith("/a.jpg") || low.endsWith("/a.jpeg") || low.endsWith("/a.png")) return false;
-        if (low.endsWith("/b.jpg") || low.endsWith("/b.jpeg") || low.endsWith("/b.png")) return false;
-        if (low.endsWith("/c.jpg") || low.endsWith("/c.jpeg") || low.endsWith("/c.png")) return false;
-        return true;
-      })
-      .map(k => k.split("/").pop()); // front očekuje samo imena fajlova
-
-    res.json(images);
-  } catch (e) {
-    console.error("R2 images error:", e);
-    res.status(500).json({ error: "Greška pri čitanju slika iz R2" });
   }
 });
 
