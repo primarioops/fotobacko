@@ -148,7 +148,32 @@ function keyToAlbumsUrl(key) {
 }
 
 // ====== API: list albums from R2 prefixes ======
-app.get("/api/albums", async (req, res) => {
+app.get("/api/images", async (req, res) => {
+  try {
+    const albumName = req.query.name;
+    if (!albumName) return res.status(400).json({ error: "Album nije validan" });
+
+    const keys = await listAllKeys(albumName + "/");
+    if (!keys.length) return res.status(404).json({ error: "Album ne postoji" });
+
+    const images = keys
+      .filter(k => {
+        const low = k.toLowerCase();
+        if (!(low.endsWith(".jpg") || low.endsWith(".jpeg") || low.endsWith(".png"))) return false;
+        if (low.endsWith("/a.jpg") || low.endsWith("/a.jpeg") || low.endsWith("/a.png")) return false;
+        if (low.endsWith("/b.jpg") || low.endsWith("/b.jpeg") || low.endsWith("/b.png")) return false;
+        if (low.endsWith("/c.jpg") || low.endsWith("/c.jpeg") || low.endsWith("/c.png")) return false;
+        return true;
+      })
+      .map(k => k.split("/").pop());
+
+    res.json(images);
+
+  } catch (e) {
+    console.error("R2 images error:", e);
+    res.status(500).json({ error: "Greška pri čitanju slika iz R2" });
+  }
+});
   try {
     const resp = await s3.send(
       new ListObjectsV2Command({
