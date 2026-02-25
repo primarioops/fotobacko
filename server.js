@@ -148,32 +148,7 @@ function keyToAlbumsUrl(key) {
 }
 
 // ====== API: list albums from R2 prefixes ======
-app.get("/api/images", async (req, res) => {
-  try {
-    const albumName = req.query.name;
-    if (!albumName) return res.status(400).json({ error: "Album nije validan" });
-
-    const keys = await listAllKeys(albumName + "/");
-    if (!keys.length) return res.status(404).json({ error: "Album ne postoji" });
-
-    const images = keys
-      .filter(k => {
-        const low = k.toLowerCase();
-        if (!(low.endsWith(".jpg") || low.endsWith(".jpeg") || low.endsWith(".png"))) return false;
-        if (low.endsWith("/a.jpg") || low.endsWith("/a.jpeg") || low.endsWith("/a.png")) return false;
-        if (low.endsWith("/b.jpg") || low.endsWith("/b.jpeg") || low.endsWith("/b.png")) return false;
-        if (low.endsWith("/c.jpg") || low.endsWith("/c.jpeg") || low.endsWith("/c.png")) return false;
-        return true;
-      })
-      .map(k => k.split("/").pop());
-
-    res.json(images);
-
-  } catch (e) {
-    console.error("R2 images error:", e);
-    res.status(500).json({ error: "Greška pri čitanju slika iz R2" });
-  }
-});
+app.get("/api/albums", async (req, res) => {
   try {
     const resp = await s3.send(
       new ListObjectsV2Command({
@@ -197,13 +172,8 @@ app.get("/api/images", async (req, res) => {
 
       const vsIndex = parts.findIndex(p => norm(p) === "vs");
 
-      const beforeVs = vsIndex >= 0
-        ? parts.slice(3, vsIndex)
-        : parts.slice(3);
-
-      const afterVs = vsIndex >= 0
-        ? parts.slice(vsIndex + 1)
-        : [];
+      const beforeVs = vsIndex >= 0 ? parts.slice(3, vsIndex) : parts.slice(3);
+      const afterVs = vsIndex >= 0 ? parts.slice(vsIndex + 1) : [];
 
       const club1 = beforeVs.join(" ").trim();
 
@@ -212,7 +182,6 @@ app.get("/api/images", async (req, res) => {
 
       if (afterVs.length) {
         const separatorIndex = afterVs.findIndex(p => p === "");
-
         if (separatorIndex !== -1) {
           club2 = afterVs.slice(0, separatorIndex).join(" ").trim();
           extra = afterVs.slice(separatorIndex + 1).join(" ").trim();
@@ -226,19 +195,12 @@ app.get("/api/images", async (req, res) => {
 
       const keys = await listAllKeys(folder + "/");
 
-      // 🔥 NOVO: preskoči folder ako nema nijednu pravu sliku
+      // preskoči prazan album
       const hasImages = keys.some(k => {
         const low = k.toLowerCase();
-        return (
-          low.endsWith(".jpg") ||
-          low.endsWith(".jpeg") ||
-          low.endsWith(".png")
-        );
+        return low.endsWith(".jpg") || low.endsWith(".jpeg") || low.endsWith(".png");
       });
-
-      if (!hasImages) {
-        continue; // preskoči prazan album
-      }
+      if (!hasImages) continue;
 
       const aKey = pickThumbFromKeys(keys, "a");
       const bKey = pickThumbFromKeys(keys, "b");
@@ -270,6 +232,33 @@ app.get("/api/images", async (req, res) => {
   } catch (e) {
     console.error("R2 albums error:", e);
     res.status(500).json({ error: "Greška pri čitanju albuma iz R2" });
+  }
+});
+
+// ====== API: list images for album (query param, radi i sa ž/š/ć) ======
+app.get("/api/images", async (req, res) => {
+  try {
+    const albumName = String(req.query.name || "");
+    if (!albumName) return res.status(400).json({ error: "Album nije validan" });
+
+    const keys = await listAllKeys(albumName + "/");
+    if (!keys.length) return res.status(404).json({ error: "Album ne postoji" });
+
+    const images = keys
+      .filter(k => {
+        const low = k.toLowerCase();
+        if (!(low.endsWith(".jpg") || low.endsWith(".jpeg") || low.endsWith(".png"))) return false;
+        if (low.endsWith("/a.jpg") || low.endsWith("/a.jpeg") || low.endsWith("/a.png")) return false;
+        if (low.endsWith("/b.jpg") || low.endsWith("/b.jpeg") || low.endsWith("/b.png")) return false;
+        if (low.endsWith("/c.jpg") || low.endsWith("/c.jpeg") || low.endsWith("/c.png")) return false;
+        return true;
+      })
+      .map(k => k.split("/").pop());
+
+    res.json(images);
+  } catch (e) {
+    console.error("R2 images error:", e);
+    res.status(500).json({ error: "Greška pri čitanju slika iz R2" });
   }
 });
 
