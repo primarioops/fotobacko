@@ -287,7 +287,6 @@ fetch(`/api/images?name=${encodeURIComponent(album)}`)
   }
 });
 
-fetch(`/api/images/${album}`)
 .then(r=>r.json())
 .then(images=>{
   images.forEach(img=>{
