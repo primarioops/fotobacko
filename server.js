@@ -382,3 +382,7 @@ app.delete("/api/admin/album", requireAdmin, async (req, res) => {
     return res.status(500).json({ error: "Delete failed" });
   }
 });
+// ====== START SERVER ======
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`Foto Backo server radi na portu ${PORT}`);
+});
