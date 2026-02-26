@@ -41,7 +41,7 @@ if (!accessKeyId || !secretAccessKey) {
   );
 }
 if (!ADMIN_PASSWORD) {
-  throw new Error("Missing env: ADMIN_PASSWORD");
+  console.log("WARNING: ADMIN_PASSWORD missing");
 }
 const s3 = new S3Client({
   region: "auto",
