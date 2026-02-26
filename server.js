@@ -327,14 +327,17 @@ app.post(
 app.delete("/api/admin/album", requireAdmin, async (req, res) => {
   try {
     const album = String((req.body && req.body.album) || "").trim();
-    if (!album) return res.status(400).json({ error: "Missing album" });
+    if (!album) {
+      return res.status(400).json({ error: "Missing album" });
+    }
 
     const prefix = album.endsWith("/") ? album : album + "/";
 
-    let token = undefined;
     let deleted = 0;
+    let token = undefined;
 
-    do {
+    while (true) {
+
       const resp = await s3.send(
         new ListObjectsV2Command({
           Bucket: R2_BUCKET,
@@ -348,28 +351,34 @@ app.delete("/api/admin/album", requireAdmin, async (req, res) => {
         .map(obj => obj && obj.Key)
         .filter(Boolean);
 
-      if (keys.length) {
-        await s3.send(
-          new DeleteObjectsCommand({
-            Bucket: R2_BUCKET,
-            Delete: {
-              Objects: keys.map(Key => ({ Key })),
-              Quiet: true,
-            },
-          })
-        );
-        deleted += keys.length;
-      }
+      // ako nema više fajlova — prekini
+      if (!keys.length) break;
 
-      token = resp.IsTruncated ? resp.NextContinuationToken : undefined;
-    } while (token);
+      await s3.send(
+        new DeleteObjectsCommand({
+          Bucket: R2_BUCKET,
+          Delete: {
+            Objects: keys.map(Key => ({ Key })),
+            Quiet: true,
+          },
+        })
+      );
 
-    res.json({ ok: true, album, deleted });
+      deleted += keys.length;
+
+      if (!resp.IsTruncated) break;
+
+      token = resp.NextContinuationToken;
+    }
+
+    return res.json({
+      ok: true,
+      album,
+      deleted
+    });
+
   } catch (e) {
     console.error("Delete album error:", e);
-    res.status(500).json({ error: "Delete failed" });
+    return res.status(500).json({ error: "Delete failed" });
   }
-});
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`Foto Backo server radi na http://localhost:${PORT}`);
 });
