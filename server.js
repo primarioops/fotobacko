@@ -227,28 +227,26 @@ app.get("/api/albums", async (req, res) => {
         })
       );
 
-      const objects = resp.Contents || [];
+const folders = (resp.CommonPrefixes || []).map(p =>
+  p.Prefix.replace("/", "")
+);
 
-      for (const obj of objects) {
-        if (!obj || !obj.Key) continue;
+for (const folder of folders) {
 
-        const key = obj.Key;
-        const parts = key.split("/");
+  const parsed = parseAlbumFolder(folder);
 
-        if (parts.length < 2) continue;
+  albumsMap[folder] = {
+    name: folder,
+    date: `${parsed.day}.${parsed.month}.${parsed.year}.`,
+    season: getSeason(parsed.year, parsed.month),
+    club1: parsed.club1.toUpperCase(),
+    club2: parsed.club2.toUpperCase(),
+    category: parsed.category.toUpperCase(),
+    extra: parsed.extra.toUpperCase(),
+    thumbnails: [`/albums/${encodeURIComponent(folder)}/a.jpg`],
+  };
 
-        const folder = parts[0];
-        const file = parts[1];
-
-        if (!folder || !file) continue;
-
-        const low = file.toLowerCase();
-        const isThumb =
-          low === "a.jpg" ||
-          low === "a.jpeg" ||
-          low === "a.png";
-
-        if (!isThumb) continue;
+}
 
         if (!albumsMap[folder]) {
           const parsed = parseAlbumFolder(folder);
