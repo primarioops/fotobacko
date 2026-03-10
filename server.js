@@ -129,14 +129,12 @@ async function listAllKeys(prefix) {
   const out = [];
 
   do {
-    const resp = await s3.send(
-      new ListObjectsV2Command({
-        Bucket: R2_BUCKET,
-        Prefix: prefix,
-        ContinuationToken: token,
-        MaxKeys: 1000,
-      })
-    );
+const resp = await s3.send(
+  new ListObjectsV2Command({
+    Bucket: R2_BUCKET,
+    Delimiter: "/"
+  })
+);
 
     (resp.Contents || []).forEach(obj => {
       if (obj && obj.Key) out.push(obj.Key);
