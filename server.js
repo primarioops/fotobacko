@@ -29,6 +29,7 @@ const secretAccessKey = (
 
 const R2_ENDPOINT = (process.env.R2_ENDPOINT || "").trim();
 const ADMIN_PASSWORD = (process.env.ADMIN_PASSWORD || "").trim();
+
 if (!R2_BUCKET) {
   throw new Error("Missing env: R2_BUCKET");
 }
@@ -43,6 +44,7 @@ if (!accessKeyId || !secretAccessKey) {
 if (!ADMIN_PASSWORD) {
   console.log("WARNING: ADMIN_PASSWORD missing");
 }
+
 const s3 = new S3Client({
   region: "auto",
   endpoint: R2_ENDPOINT,
@@ -52,9 +54,9 @@ const s3 = new S3Client({
 // ====== static frontend ======
 app.use(express.static(path.join(__dirname, "public")));
 app.use(express.json({ limit: "1mb" }));
+
 // ====== admin auth (simple) ======
 function requireAdmin(req, res, next) {
-  // očekujemo header: x-admin-password: <tvoja_lozinka>
   const pass = String(req.headers["x-admin-password"] || "").trim();
 
   if (!pass || pass !== ADMIN_PASSWORD) {
@@ -65,17 +67,18 @@ function requireAdmin(req, res, next) {
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 25 * 1024 * 1024 } // 25MB
+  limits: { fileSize: 25 * 1024 * 1024 }, // 25MB
 });
+
 // ====== helpers ======
 const CATEGORY_LIST = [
-  "pretpetlići","pretpetlici",
-  "petlići","petlici",
-  "mlađi pioniri","mladji pioniri",
+  "pretpetlići", "pretpetlici",
+  "petlići", "petlici",
+  "mlađi pioniri", "mladji pioniri",
   "pioniri",
-  "mlađi kadeti","mladji kadeti",
+  "mlađi kadeti", "mladji kadeti",
   "kadeti",
-  "mlađi omladinci","mladji omladinci",
+  "mlađi omladinci", "mladji omladinci",
   "omladinci",
   "seniori",
   "veterani",
@@ -111,7 +114,6 @@ function findCategoryIndex(partsAfterVs) {
 }
 
 function pickThumbFromKeys(keys, base) {
-  // tražimo a.jpg / a.jpeg / a.png (case-insensitive)
   const lower = keys.map(k => k.toLowerCase());
   const candidates = [`${base}.jpg`, `${base}.jpeg`, `${base}.png`];
   for (const c of candidates) {
@@ -122,105 +124,162 @@ function pickThumbFromKeys(keys, base) {
 }
 
 async function listAllKeys(prefix) {
-  // vraća sve object keys za dati prefix
   let token = undefined;
   const out = [];
+
   do {
     const resp = await s3.send(
       new ListObjectsV2Command({
         Bucket: R2_BUCKET,
         Prefix: prefix,
         ContinuationToken: token,
+        MaxKeys: 1000,
       })
     );
+
     (resp.Contents || []).forEach(obj => {
       if (obj && obj.Key) out.push(obj.Key);
     });
+
     token = resp.IsTruncated ? resp.NextContinuationToken : undefined;
   } while (token);
+
   return out;
 }
 
 function keyToAlbumsUrl(key) {
-  // key je npr "18-02-2026-.../a.jpg"
-  // front očekuje /albums/<folder>/<file>
   return "/albums/" + key.split("/").map(encodeURIComponent).join("/");
 }
 
-// ====== API: list albums from R2 prefixes ======
+function parseAlbumFolder(folder) {
+  const parts = folder.split("-");
+
+  const day = parts[0] || "";
+  const month = parts[1] || "";
+  const year = parts[2] || "";
+
+  const vsIndex = parts.findIndex(p => norm(p) === "vs");
+
+  const beforeVs = vsIndex >= 0 ? parts.slice(3, vsIndex) : parts.slice(3);
+  const afterVs = vsIndex >= 0 ? parts.slice(vsIndex + 1) : [];
+
+  const club1 = beforeVs.join(" ").trim();
+
+  let club2 = "";
+  let category = "";
+  let extra = "";
+
+  if (afterVs.length) {
+    const categoryIndex = findCategoryIndex(afterVs);
+
+    if (categoryIndex >= 0) {
+      club2 = afterVs.slice(0, categoryIndex).join(" ").trim();
+      category = afterVs[categoryIndex] || "";
+      extra = afterVs.slice(categoryIndex + 1).join(" ").trim();
+    } else {
+      club2 = afterVs.join(" ").trim();
+    }
+  }
+
+  return {
+    day,
+    month,
+    year,
+    club1,
+    club2,
+    category,
+    extra,
+  };
+}
+
+function parseDateToTime(dateString) {
+  const parts = String(dateString || "").split(".").filter(Boolean);
+  if (parts.length !== 3) return 0;
+  const [day, month, year] = parts;
+  return new Date(`${year}-${month}-${day}`).getTime();
+}
+
+// ====== cache for albums ======
+let albumsCache = null;
+let albumsCacheTime = 0;
+const ALBUMS_CACHE_TTL = 60 * 1000; // 60 sekundi
+
+function clearAlbumsCache() {
+  albumsCache = null;
+  albumsCacheTime = 0;
+}
+
+// ====== API: list albums from R2 ======
 app.get("/api/albums", async (req, res) => {
   try {
+    if (albumsCache && Date.now() - albumsCacheTime < ALBUMS_CACHE_TTL) {
+      return res.json(albumsCache);
+    }
 
-    const resp = await s3.send(
-      new ListObjectsV2Command({
-        Bucket: R2_BUCKET
-      })
-    );
-
-    const objects = resp.Contents || [];
+    let token = undefined;
     const albumsMap = {};
 
-    for (const obj of objects) {
+    do {
+      const resp = await s3.send(
+        new ListObjectsV2Command({
+          Bucket: R2_BUCKET,
+          ContinuationToken: token,
+          MaxKeys: 1000,
+        })
+      );
 
-      if (!obj.Key) continue;
+      const objects = resp.Contents || [];
 
-      const parts = obj.Key.split("/");
-      if (parts.length < 2) continue;
+      for (const obj of objects) {
+        if (!obj || !obj.Key) continue;
 
-      const folder = parts[0];
-      const file = parts[1];
+        const key = obj.Key;
+        const parts = key.split("/");
 
-      const low = file.toLowerCase();
+        if (parts.length < 2) continue;
 
-      if (
-        low.endsWith(".jpg") ||
-        low.endsWith(".jpeg") ||
-        low.endsWith(".png")
-      ) {
+        const folder = parts[0];
+        const file = parts[1];
+
+        if (!folder || !file) continue;
+
+        const low = file.toLowerCase();
+        const isThumb =
+          low === "a.jpg" ||
+          low === "a.jpeg" ||
+          low === "a.png";
+
+        if (!isThumb) continue;
 
         if (!albumsMap[folder]) {
-
-          const nameParts = folder.split("-");
-
-          const day = nameParts[0] || "";
-          const month = nameParts[1] || "";
-          const year = nameParts[2] || "";
-
-          const vsIndex = nameParts.findIndex(p => norm(p) === "vs");
-
-          const beforeVs = vsIndex >= 0 ? nameParts.slice(3, vsIndex) : nameParts.slice(3);
-          const afterVs = vsIndex >= 0 ? nameParts.slice(vsIndex + 1) : [];
-
-          const club1 = beforeVs.join(" ").trim();
-          const club2 = afterVs.join(" ").trim();
+          const parsed = parseAlbumFolder(folder);
 
           albumsMap[folder] = {
             name: folder,
-            date: `${day}.${month}.${year}.`,
-            season: getSeason(year, month),
-            club1: club1.toUpperCase(),
-            club2: club2.toUpperCase(),
-            category: "",
-            extra: "",
-            thumbnails: [keyToAlbumsUrl(obj.Key)]
+            date: `${parsed.day}.${parsed.month}.${parsed.year}.`,
+            season: getSeason(parsed.year, parsed.month),
+            club1: parsed.club1.toUpperCase(),
+            club2: parsed.club2.toUpperCase(),
+            category: parsed.category.toUpperCase(),
+            extra: parsed.extra.toUpperCase(),
+            thumbnails: [keyToAlbumsUrl(key)],
           };
-
         }
-
       }
 
-    }
+      token = resp.IsTruncated ? resp.NextContinuationToken : undefined;
+    } while (token);
 
     const albumsData = Object.values(albumsMap);
 
     albumsData.sort((a, b) => {
-      const dateA = new Date(a.date.split(".").reverse().join("-"));
-      const dateB = new Date(b.date.split(".").reverse().join("-"));
-      return dateB - dateA;
+      return parseDateToTime(b.date) - parseDateToTime(a.date);
     });
 
-    res.json(albumsData);
+    albumsCache = albumsData;
+    albumsCacheTime = Date.now();
 
+    res.json(albumsData);
   } catch (e) {
     console.error("R2 albums error:", e);
     res.status(500).json({ error: "Greška pri čitanju albuma iz R2" });
@@ -231,18 +290,30 @@ app.get("/api/albums", async (req, res) => {
 app.get("/api/images", async (req, res) => {
   try {
     const albumName = String(req.query.name || "");
-    if (!albumName) return res.status(400).json({ error: "Album nije validan" });
+    if (!albumName) {
+      return res.status(400).json({ error: "Album nije validan" });
+    }
 
     const keys = await listAllKeys(albumName + "/");
-    if (!keys.length) return res.status(404).json({ error: "Album ne postoji" });
+    if (!keys.length) {
+      return res.status(404).json({ error: "Album ne postoji" });
+    }
 
     const images = keys
       .filter(k => {
         const low = k.toLowerCase();
-        if (!(low.endsWith(".jpg") || low.endsWith(".jpeg") || low.endsWith(".png"))) return false;
-        if (low.endsWith("/a.jpg") || low.endsWith("/a.jpeg") || low.endsWith("/a.png")) return false;
-        if (low.endsWith("/b.jpg") || low.endsWith("/b.jpeg") || low.endsWith("/b.png")) return false;
-        if (low.endsWith("/c.jpg") || low.endsWith("/c.jpeg") || low.endsWith("/c.png")) return false;
+        if (!(low.endsWith(".jpg") || low.endsWith(".jpeg") || low.endsWith(".png"))) {
+          return false;
+        }
+        if (low.endsWith("/a.jpg") || low.endsWith("/a.jpeg") || low.endsWith("/a.png")) {
+          return false;
+        }
+        if (low.endsWith("/b.jpg") || low.endsWith("/b.jpeg") || low.endsWith("/b.png")) {
+          return false;
+        }
+        if (low.endsWith("/c.jpg") || low.endsWith("/c.jpeg") || low.endsWith("/c.png")) {
+          return false;
+        }
         return true;
       })
       .map(k => k.split("/").pop());
@@ -259,7 +330,10 @@ app.get("/albums/:album/:file", async (req, res) => {
   try {
     const album = decodeURIComponent(req.params.album || "");
     const file = decodeURIComponent(req.params.file || "");
-    if (!album || !file) return res.status(400).send("Bad request");
+
+    if (!album || !file) {
+      return res.status(400).send("Bad request");
+    }
 
     const key = `${album}/${file}`;
 
@@ -270,17 +344,22 @@ app.get("/albums/:album/:file", async (req, res) => {
       })
     );
 
-    // Content-Type i caching
-    if (obj.ContentType) res.setHeader("Content-Type", obj.ContentType);
+    if (obj.ContentType) {
+      res.setHeader("Content-Type", obj.ContentType);
+    }
     res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
 
-    // Stream
+    if (!obj.Body) {
+      return res.status(404).send("Not found");
+    }
+
     obj.Body.pipe(res);
   } catch (e) {
     console.error("R2 get object error:", e);
     res.status(404).send("Not found");
   }
 });
+
 // ====== ADMIN: upload image to R2 ======
 app.post(
   "/api/admin/upload",
@@ -289,13 +368,16 @@ app.post(
   async (req, res) => {
     try {
       const album = String(req.body.album || "").trim();
-      if (!album) return res.status(400).json({ error: "Missing album" });
+      if (!album) {
+        return res.status(400).json({ error: "Missing album" });
+      }
 
-      if (!req.file) return res.status(400).json({ error: "Missing file" });
+      if (!req.file) {
+        return res.status(400).json({ error: "Missing file" });
+      }
 
       const original = String(req.file.originalname || "upload.jpg");
       const safeName = original.replace(/[^a-zA-Z0-9.-]/g, "");
-
       const key = `${album}/${safeName}`;
 
       await s3.send(
@@ -308,6 +390,8 @@ app.post(
         })
       );
 
+      clearAlbumsCache();
+
       res.json({ ok: true, key });
     } catch (e) {
       console.error("Upload error:", e);
@@ -315,6 +399,7 @@ app.post(
     }
   }
 );
+
 // ====== ADMIN: delete whole album (prefix) from R2 ======
 app.delete("/api/admin/album", requireAdmin, async (req, res) => {
   try {
@@ -324,12 +409,10 @@ app.delete("/api/admin/album", requireAdmin, async (req, res) => {
     }
 
     const prefix = album.endsWith("/") ? album : album + "/";
-
     let deleted = 0;
     let token = undefined;
 
     while (true) {
-
       const resp = await s3.send(
         new ListObjectsV2Command({
           Bucket: R2_BUCKET,
@@ -343,7 +426,6 @@ app.delete("/api/admin/album", requireAdmin, async (req, res) => {
         .map(obj => obj && obj.Key)
         .filter(Boolean);
 
-      // ako nema više fajlova — prekini
       if (!keys.length) break;
 
       await s3.send(
@@ -359,21 +441,22 @@ app.delete("/api/admin/album", requireAdmin, async (req, res) => {
       deleted += keys.length;
 
       if (!resp.IsTruncated) break;
-
       token = resp.NextContinuationToken;
     }
+
+    clearAlbumsCache();
 
     return res.json({
       ok: true,
       album,
-      deleted
+      deleted,
     });
-
   } catch (e) {
     console.error("Delete album error:", e);
     return res.status(500).json({ error: "Delete failed" });
   }
 });
+
 // ====== START SERVER ======
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`Foto Backo server radi na portu ${PORT}`);
