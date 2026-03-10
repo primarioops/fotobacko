@@ -143,7 +143,7 @@ const resp = await s3.send(
 
   return out;
 }
-
+}
 function keyToAlbumsUrl(key) {
   return R2_PUBLIC_URL + "/" + key.split("/").map(encodeURIComponent).join("/");
 }
