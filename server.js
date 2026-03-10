@@ -158,7 +158,6 @@ app.get("/api/albums", async (req, res) => {
     );
 
     const objects = resp.Contents || [];
-
     const albumsMap = {};
 
     for (const obj of objects) {
@@ -174,23 +173,23 @@ app.get("/api/albums", async (req, res) => {
       const low = file.toLowerCase();
 
       if (
-        low === "a.jpg" ||
-        low === "a.jpeg" ||
-        low === "a.png"
+        low.endsWith(".jpg") ||
+        low.endsWith(".jpeg") ||
+        low.endsWith(".png")
       ) {
 
         if (!albumsMap[folder]) {
 
-          const partsName = folder.split("-");
+          const nameParts = folder.split("-");
 
-          const day = partsName[0] || "";
-          const month = partsName[1] || "";
-          const year = partsName[2] || "";
+          const day = nameParts[0] || "";
+          const month = nameParts[1] || "";
+          const year = nameParts[2] || "";
 
-          const vsIndex = partsName.findIndex(p => norm(p) === "vs");
+          const vsIndex = nameParts.findIndex(p => norm(p) === "vs");
 
-          const beforeVs = vsIndex >= 0 ? partsName.slice(3, vsIndex) : partsName.slice(3);
-          const afterVs = vsIndex >= 0 ? partsName.slice(vsIndex + 1) : [];
+          const beforeVs = vsIndex >= 0 ? nameParts.slice(3, vsIndex) : nameParts.slice(3);
+          const afterVs = vsIndex >= 0 ? nameParts.slice(vsIndex + 1) : [];
 
           const club1 = beforeVs.join(" ").trim();
           const club2 = afterVs.join(" ").trim();
@@ -205,8 +204,11 @@ app.get("/api/albums", async (req, res) => {
             extra: "",
             thumbnails: [keyToAlbumsUrl(obj.Key)]
           };
+
         }
+
       }
+
     }
 
     const albumsData = Object.values(albumsMap);
