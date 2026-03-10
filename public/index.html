@@ -217,8 +217,7 @@ function render(albums){
         let imagesHTML = "";
         if(album.thumbnails.length){
             album.thumbnails.forEach(t=>{
-                imagesHTML += `<img src="${t}" loading="lazy" onclick="openAlbum('${album.name}')">
-            });
+                imagesHTML += `<img src="${t}" onclick="openAlbum('${album.name}')">`;
         } else {
             imagesHTML = `<div style="padding:40px;text-align:center;">Nema thumbnaila</div>`;
         }
