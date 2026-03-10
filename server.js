@@ -114,36 +114,30 @@ function findCategoryIndex(partsAfterVs) {
   return Math.max(partsAfterVs.length - 1, 0);
 }
 
-function pickThumbFromKeys(keys, base) {
-  const lower = keys.map(k => k.toLowerCase());
-  const candidates = [`${base}.jpg`, `${base}.jpeg`, `${base}.png`];
-  for (const c of candidates) {
-    const idx = lower.findIndex(k => k.endsWith("/" + c));
-    if (idx >= 0) return keys[idx];
-  }
-  return null;
-}
-
 async function listAllKeys(prefix) {
   let token = undefined;
   const out = [];
 
   do {
-const resp = await s3.send(
-  new ListObjectsV2Command({
-    Bucket: R2_BUCKET,
-    Delimiter: "/"
-  })
-);
+    const resp = await s3.send(
+      new ListObjectsV2Command({
+        Bucket: R2_BUCKET,
+        Prefix: prefix,
+        ContinuationToken: token,
+        MaxKeys: 1000,
+      })
+    );
 
     (resp.Contents || []).forEach(obj => {
       if (obj && obj.Key) out.push(obj.Key);
     });
 
+    token = resp.IsTruncated ? resp.NextContinuationToken : undefined;
+  } while (token);
 
   return out;
 }
-}
+
 function keyToAlbumsUrl(key) {
   return R2_PUBLIC_URL + "/" + key.split("/").map(encodeURIComponent).join("/");
 }
@@ -213,59 +207,31 @@ app.get("/api/albums", async (req, res) => {
       return res.json(albumsCache);
     }
 
-    let token = undefined;
-    const albumsMap = {};
+    const resp = await s3.send(
+      new ListObjectsV2Command({
+        Bucket: R2_BUCKET,
+        Delimiter: "/",
+      })
+    );
 
-    do {
-      const resp = await s3.send(
-        new ListObjectsV2Command({
-          Bucket: R2_BUCKET,
-          ContinuationToken: token,
-          MaxKeys: 1000,
-        })
-      );
+    const folders = (resp.CommonPrefixes || [])
+      .map(p => String(p.Prefix || "").replace(/\/$/, ""))
+      .filter(Boolean);
 
-const folders = (resp.CommonPrefixes || []).map(p =>
-  p.Prefix.replace("/", "")
-);
+    const albumsData = folders.map(folder => {
+      const parsed = parseAlbumFolder(folder);
 
-for (const folder of folders) {
-
-  const parsed = parseAlbumFolder(folder);
-
-  albumsMap[folder] = {
-    name: folder,
-    date: `${parsed.day}.${parsed.month}.${parsed.year}.`,
-    season: getSeason(parsed.year, parsed.month),
-    club1: parsed.club1.toUpperCase(),
-    club2: parsed.club2.toUpperCase(),
-    category: parsed.category.toUpperCase(),
-    extra: parsed.extra.toUpperCase(),
-    thumbnails: [`/albums/${encodeURIComponent(folder)}/a.jpg`],
-  };
-
-}
-
-        if (!albumsMap[folder]) {
-          const parsed = parseAlbumFolder(folder);
-
-          albumsMap[folder] = {
-            name: folder,
-            date: `${parsed.day}.${parsed.month}.${parsed.year}.`,
-            season: getSeason(parsed.year, parsed.month),
-            club1: parsed.club1.toUpperCase(),
-            club2: parsed.club2.toUpperCase(),
-            category: parsed.category.toUpperCase(),
-            extra: parsed.extra.toUpperCase(),
-            thumbnails: [keyToAlbumsUrl(key)],
-          };
-        }
-      }
-
-      token = resp.IsTruncated ? resp.NextContinuationToken : undefined;
-    } while (token);
-
-    const albumsData = Object.values(albumsMap);
+      return {
+        name: folder,
+        date: `${parsed.day}.${parsed.month}.${parsed.year}.`,
+        season: getSeason(parsed.year, parsed.month),
+        club1: parsed.club1.toUpperCase(),
+        club2: parsed.club2.toUpperCase(),
+        category: parsed.category.toUpperCase(),
+        extra: parsed.extra.toUpperCase(),
+        thumbnails: [keyToAlbumsUrl(`${folder}/a.jpg`)],
+      };
+    });
 
     albumsData.sort((a, b) => {
       return parseDateToTime(b.date) - parseDateToTime(a.date);
