@@ -164,7 +164,7 @@ function normalizeText(s){
 
 let allAlbums = [];
 
-fetch('/api/albums')
+fetch('/albums/json')
 .then(res => res.json())
 .then(albums => {
 
