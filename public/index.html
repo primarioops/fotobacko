@@ -165,25 +165,23 @@ function normalizeText(s){
 let allAlbums = [];
 
 fetch('/api/albums')
-  .then(res => res.json())
-  .then(albums => {
+.then(res => res.json())
+.then(albums => {
+
+    allAlbums = albums;
 
     const firstAlbums = albums.slice(0,5);
     const restAlbums = albums.slice(5);
 
     // prikaži prvih 5 odmah
-    firstAlbums.forEach(album => {
-      addAlbum(album);
-    });
+    render(firstAlbums);
 
-    // ostali se učitavaju malo kasnije
-    setTimeout(() => {
-      restAlbums.forEach(album => {
-        addAlbum(album);
-      });
-    }, 500);
+    // dodaj ostale posle kratkog delay-a
+    setTimeout(()=>{
+        render(albums);
+    },400);
 
-  });
+});
 
 document.getElementById("search").addEventListener("input", applyFilters);
 
