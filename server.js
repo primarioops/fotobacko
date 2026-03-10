@@ -150,77 +150,66 @@ function keyToAlbumsUrl(key) {
 // ====== API: list albums from R2 prefixes ======
 app.get("/api/albums", async (req, res) => {
   try {
+
     const resp = await s3.send(
       new ListObjectsV2Command({
-        Bucket: R2_BUCKET,
-        Delimiter: "/",
+        Bucket: R2_BUCKET
       })
     );
 
-    const folders = (resp.CommonPrefixes || [])
-      .map(p => (p.Prefix || "").replace(/\/$/, ""))
-      .filter(Boolean);
+    const objects = resp.Contents || [];
 
-    const albumsData = [];
+    const albumsMap = {};
 
-    for (const folder of folders) {
-      const parts = folder.split("-");
+    for (const obj of objects) {
 
-      const day = parts[0] || "";
-      const month = parts[1] || "";
-      const year = parts[2] || "";
+      if (!obj.Key) continue;
 
-      const vsIndex = parts.findIndex(p => norm(p) === "vs");
+      const parts = obj.Key.split("/");
+      if (parts.length < 2) continue;
 
-      const beforeVs = vsIndex >= 0 ? parts.slice(3, vsIndex) : parts.slice(3);
-      const afterVs = vsIndex >= 0 ? parts.slice(vsIndex + 1) : [];
+      const folder = parts[0];
+      const file = parts[1];
 
-      const club1 = beforeVs.join(" ").trim();
+      const low = file.toLowerCase();
 
-      let club2 = "";
-      let extra = "";
+      if (
+        low === "a.jpg" ||
+        low === "a.jpeg" ||
+        low === "a.png"
+      ) {
 
-      if (afterVs.length) {
-        const separatorIndex = afterVs.findIndex(p => p === "");
-        if (separatorIndex !== -1) {
-          club2 = afterVs.slice(0, separatorIndex).join(" ").trim();
-          extra = afterVs.slice(separatorIndex + 1).join(" ").trim();
-        } else {
-          club2 = afterVs.join(" ").trim();
-          extra = "";
+        if (!albumsMap[folder]) {
+
+          const partsName = folder.split("-");
+
+          const day = partsName[0] || "";
+          const month = partsName[1] || "";
+          const year = partsName[2] || "";
+
+          const vsIndex = partsName.findIndex(p => norm(p) === "vs");
+
+          const beforeVs = vsIndex >= 0 ? partsName.slice(3, vsIndex) : partsName.slice(3);
+          const afterVs = vsIndex >= 0 ? partsName.slice(vsIndex + 1) : [];
+
+          const club1 = beforeVs.join(" ").trim();
+          const club2 = afterVs.join(" ").trim();
+
+          albumsMap[folder] = {
+            name: folder,
+            date: `${day}.${month}.${year}.`,
+            season: getSeason(year, month),
+            club1: club1.toUpperCase(),
+            club2: club2.toUpperCase(),
+            category: "",
+            extra: "",
+            thumbnails: [keyToAlbumsUrl(obj.Key)]
+          };
         }
       }
-
-      const season = getSeason(year, month);
-
-      const keys = await listAllKeys(folder + "/");
-
-      // preskoči prazan album
-      const hasImages = keys.some(k => {
-        const low = k.toLowerCase();
-        return low.endsWith(".jpg") || low.endsWith(".jpeg") || low.endsWith(".png");
-      });
-      if (!hasImages) continue;
-
-      const aKey = pickThumbFromKeys(keys, "a");
-      const bKey = pickThumbFromKeys(keys, "b");
-      const cKey = pickThumbFromKeys(keys, "c");
-
-      const thumbnails = [aKey, bKey, cKey]
-        .filter(Boolean)
-        .map(keyToAlbumsUrl);
-
-      albumsData.push({
-        name: folder,
-        date: `${day}.${month}.${year}.`,
-        season,
-        club1: club1.toUpperCase(),
-        club2: club2.toUpperCase(),
-        category: "",
-        extra: extra.toUpperCase(),
-        thumbnails
-      });
     }
+
+    const albumsData = Object.values(albumsMap);
 
     albumsData.sort((a, b) => {
       const dateA = new Date(a.date.split(".").reverse().join("-"));
@@ -229,6 +218,7 @@ app.get("/api/albums", async (req, res) => {
     });
 
     res.json(albumsData);
+
   } catch (e) {
     console.error("R2 albums error:", e);
     res.status(500).json({ error: "Greška pri čitanju albuma iz R2" });
