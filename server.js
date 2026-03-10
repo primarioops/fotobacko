@@ -149,7 +149,7 @@ async function listAllKeys(prefix) {
 }
 
 function keyToAlbumsUrl(key) {
-  return R2_PUBLIC_URL + "/" + key;
+  return R2_PUBLIC_URL + "/" + key.split("/").map(encodeURIComponent).join("/");
 }
 
 function parseAlbumFolder(folder) {
