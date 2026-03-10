@@ -1,0 +1,13 @@
+[
+  {
+    "name": "demo-album",
+    "date": "01.01.2026.",
+    "club1": "DEMO",
+    "club2": "DEMO",
+    "category": "",
+    "extra": "",
+    "thumbnails": [
+      "/albums/demo-album/a.jpg"
+    ]
+  }
+]
