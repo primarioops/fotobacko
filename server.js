@@ -28,6 +28,7 @@ const secretAccessKey = (
 ).trim();
 
 const R2_ENDPOINT = (process.env.R2_ENDPOINT || "").trim();
+const R2_PUBLIC_URL = "https://pub-6f722da185574126ba7b1069d1ab1f45.r2.dev";
 const ADMIN_PASSWORD = (process.env.ADMIN_PASSWORD || "").trim();
 
 if (!R2_BUCKET) {
@@ -148,7 +149,7 @@ async function listAllKeys(prefix) {
 }
 
 function keyToAlbumsUrl(key) {
-  return "/albums/" + key.split("/").map(encodeURIComponent).join("/");
+  return R2_PUBLIC_URL + "/" + key;
 }
 
 function parseAlbumFolder(folder) {
