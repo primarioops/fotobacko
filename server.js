@@ -140,8 +140,6 @@ const resp = await s3.send(
       if (obj && obj.Key) out.push(obj.Key);
     });
 
-    token = resp.IsTruncated ? resp.NextContinuationToken : undefined;
-  } while (token);
 
   return out;
 }
