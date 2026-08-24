@@ -6,202 +6,536 @@
 <title>Album</title>
 
 <style>
-body{margin:0;font-family:Arial;background:#fff;color:#111;}
-
-.container{max-width:1200px;margin:30px auto;padding:0 20px 140px 20px;}
-
-h2{margin:20px 0;}
-
-.grid{display:grid;grid-template-columns:repeat(4, 1fr);gap:20px;}
-
-.photo{position:relative;}
-
-.photo img{width:100%;display:block;object-fit:contain;}
-
-.pick{
-position:absolute;top:10px;right:10px;width:32px;height:32px;border-radius:50%;
-background:#fff;display:flex;align-items:center;justify-content:center;
-font-weight:bold;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.2);
+body{
+    margin:0;
+    font-family:Arial;
+    background:#fff;
+    color:#111;
 }
 
-.photo.selected .pick{background:#2ecc71;color:#fff;}
+.container{
+    max-width:1200px;
+    margin:30px auto;
+    padding:0 20px 140px 20px;
+}
+
+h2{
+    margin:20px 0;
+}
+
+.grid{
+    display:grid;
+    grid-template-columns:repeat(4, 1fr);
+    gap:20px;
+}
+
+.photo{
+    position:relative;
+}
+
+.photo img{
+    width:100%;
+    display:block;
+    object-fit:contain;
+}
+
+.pick{
+    position:absolute;
+    top:10px;
+    right:10px;
+    width:32px;
+    height:32px;
+    border-radius:50%;
+    background:#fff;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-weight:bold;
+    cursor:pointer;
+    box-shadow:0 2px 6px rgba(0,0,0,0.2);
+}
+
+.photo.selected .pick{
+    background:#2ecc71;
+    color:#fff;
+}
 
 .bottom-bar{
-position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid #eee;
+    position:fixed;
+    left:0;
+    right:0;
+    bottom:0;
+    background:#fff;
+    border-top:1px solid #eee;
 }
 
 .bottom-inner{
-max-width:1200px;margin:0 auto;padding:15px 20px;
-display:flex;justify-content:space-between;align-items:flex-start;
+    max-width:1200px;
+    margin:0 auto;
+    padding:15px 20px;
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
 }
 
-.count{font-weight:bold;}
+.count{
+    font-weight:bold;
+}
 
-.buttons{display:flex;flex-direction:column;gap:10px;}
+.buttons{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+}
 
 button{
-padding:10px 15px;border:none;border-radius:5px;cursor:pointer;font-weight:bold;
+    padding:10px 15px;
+    border:none;
+    border-radius:5px;
+    cursor:pointer;
+    font-weight:bold;
 }
 
-.reset{background:#e74c3c;color:#fff;}
-.wa{background:#25D366;color:#fff;}
-.viber{background:#7360F2;color:#fff;}
+.reset{
+    background:#e74c3c;
+    color:#fff;
+}
+
+.wa{
+    background:#25D366;
+    color:#fff;
+}
+
+.viber{
+    background:#7360F2;
+    color:#fff;
+}
 
 .scroll-btn{
-position:fixed;right:20px;width:45px;height:45px;border-radius:50%;
-background:#3498db;color:#fff;display:flex;align-items:center;justify-content:center;
-cursor:pointer;
+    position:fixed;
+    right:20px;
+    width:45px;
+    height:45px;
+    border-radius:50%;
+    background:#3498db;
+    color:#fff;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
 }
 
-.scroll-top{top:50%;margin-top:-60px;}
-.scroll-bottom{top:50%;margin-top:10px;}
+.scroll-top{
+    top:50%;
+    margin-top:-60px;
+}
+
+.scroll-bottom{
+    top:50%;
+    margin-top:10px;
+}
 
 .footer-text{
-max-width:1200px;margin:20px auto 0 auto;font-size:14px;line-height:1.5;
+    max-width:1200px;
+    margin:20px auto 0 auto;
+    font-size:14px;
+    line-height:1.5;
 }
 
 @media screen and (max-width:768px){
-.grid{grid-template-columns:repeat(2,1fr)!important;gap:12px;}
-.pick{width:26px;height:26px;font-size:16px;top:6px;right:6px;box-shadow:none;}
+    .grid{
+        grid-template-columns:repeat(2,1fr)!important;
+        gap:12px;
+    }
+
+    .pick{
+        width:26px;
+        height:26px;
+        font-size:16px;
+        top:6px;
+        right:6px;
+        box-shadow:none;
+    }
 }
 
 .popup-overlay{
-position:fixed;inset:0;background:rgba(0,0,0,0.6);
-display:none;align-items:center;justify-content:center;z-index:999;
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,0.6);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    z-index:999;
 }
 
 .popup{
-background:#fff;padding:20px;max-width:90%;
-border-radius:8px;text-align:center;
+    background:#fff;
+    padding:20px;
+    max-width:90%;
+    border-radius:8px;
+    text-align:center;
 }
 
-.popup textarea{width:100%;height:100px;margin:10px 0;}
+.popup textarea{
+    width:100%;
+    height:100px;
+    margin:10px 0;
+}
 
-.popup button{margin-top:8px;width:100%;}
+.popup button{
+    margin-top:8px;
+    width:100%;
+}
 </style>
 </head>
 
 <body>
 
 <div class="container">
-<a href="/">← Nazad na sve utakmice</a>
-<h2 id="title"></h2>
-<div class="grid" id="grid"></div>
+    <a href="/">← Nazad na sve utakmice</a>
+    <h2 id="title"></h2>
+    <div class="grid" id="grid"></div>
 </div>
 
-<div class="scroll-btn scroll-top" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑</div>
-<div class="scroll-btn scroll-bottom" onclick="window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'})">↓</div>
+<div
+    class="scroll-btn scroll-top"
+    onclick="window.scrollTo({top:0,behavior:'smooth'})"
+>
+    ↑
+</div>
+
+<div
+    class="scroll-btn scroll-bottom"
+    onclick="window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'})"
+>
+    ↓
+</div>
 
 <div class="bottom-bar">
-<div class="bottom-inner">
-<div>
-<div class="count" id="countText">Odabrano: 0</div>
-<div class="footer-text">
-Odaberite fotografije klikom na +.
-Klikom na WhatsApp ili Viber NE kupujete automatski fotografije,
-već započinjete kontakt radi dogovora.
-</div>
-</div>
+    <div class="bottom-inner">
 
-<div class="buttons">
-<button class="reset" onclick="resetSelection()">Poništi sve</button>
-<button class="wa" onclick="send('wa')">WhatsApp</button>
-<button class="viber" onclick="send('vi')">Viber</button>
-</div>
-</div>
+        <div>
+            <div class="count" id="countText">Odabrano: 0</div>
+
+            <div class="footer-text">
+                Odaberite fotografije klikom na +.
+                Klikom na WhatsApp ili Viber NE kupujete automatski fotografije,
+                već započinjete kontakt radi dogovora.
+            </div>
+        </div>
+
+        <div class="buttons">
+            <button class="reset" onclick="resetSelection()">Poništi sve</button>
+            <button class="wa" onclick="send('wa')">WhatsApp</button>
+            <button class="viber" onclick="send('vi')">Viber</button>
+        </div>
+
+    </div>
 </div>
 
 <div class="popup-overlay" id="popup">
-<div class="popup">
-<h3>Kopirajte poruku i nalepite u Viber</h3>
-<textarea id="viberText" readonly></textarea>
-<button onclick="copyText()">Kopiraj poruku</button>
-<button onclick="openViber()">Otvori Viber</button>
-</div>
+    <div class="popup">
+        <h3>Kopirajte poruku i nalepite u Viber</h3>
+
+        <textarea id="viberText" readonly></textarea>
+
+        <button onclick="copyText()">Kopiraj poruku</button>
+        <button onclick="openViber()">Otvori Viber</button>
+    </div>
 </div>
 
 <script>
+
+const R2_PUBLIC_URL =
+    "https://pub-6f722da185574126ba7b1069d1ab1f45.r2.dev";
+
 const params = new URLSearchParams(location.search);
 const album = params.get("name");
+
 const grid = document.getElementById("grid");
 const titleEl = document.getElementById("title");
 const countText = document.getElementById("countText");
+
 const phone = "381644236630";
 
 let selected = [];
 let viberMessage = "";
 
-function updateCount(){
-countText.innerText="Odabrano: "+selected.length;
+
+/* =========================================================
+   R2 URL
+   Fotografija ide direktno:
+   R2 -> browser
+
+   Render više ne prosleđuje samu fotografiju.
+========================================================= */
+
+function getR2ImageUrl(albumName, fileName){
+
+    const encodedAlbum = String(albumName || "")
+        .split("/")
+        .map(part => encodeURIComponent(part))
+        .join("/");
+
+    const encodedFile = encodeURIComponent(fileName);
+
+    return `${R2_PUBLIC_URL}/${encodedAlbum}/${encodedFile}`;
 }
 
-function togglePick(btn,num){
-const card=btn.parentElement;
-const selectedNow=card.classList.toggle("selected");
-btn.innerText=selectedNow?"✓":"+";
-if(selectedNow){selected.push(num);}else{selected=selected.filter(n=>n!==num);}
-updateCount();
+
+/* =========================================================
+   BROJAČ ODABRANIH FOTOGRAFIJA
+========================================================= */
+
+function updateCount(){
+    countText.innerText = "Odabrano: " + selected.length;
 }
+
+
+/* =========================================================
+   ODABIR FOTOGRAFIJE
+========================================================= */
+
+function togglePick(btn, num){
+
+    const card = btn.parentElement;
+
+    const selectedNow =
+        card.classList.toggle("selected");
+
+    btn.innerText =
+        selectedNow ? "✓" : "+";
+
+    if(selectedNow){
+
+        selected.push(num);
+
+    }else{
+
+        selected =
+            selected.filter(n => n !== num);
+
+    }
+
+    updateCount();
+}
+
+
+/* =========================================================
+   PONIŠTI IZBOR
+========================================================= */
 
 function resetSelection(){
-selected=[];
-document.querySelectorAll(".photo").forEach(p=>{
-p.classList.remove("selected");
-p.querySelector(".pick").innerText="+";
-});
-updateCount();
+
+    selected = [];
+
+    document
+        .querySelectorAll(".photo")
+        .forEach(photo => {
+
+            photo.classList.remove("selected");
+
+            const pick =
+                photo.querySelector(".pick");
+
+            if(pick){
+                pick.innerText = "+";
+            }
+
+        });
+
+    updateCount();
 }
+
+
+/* =========================================================
+   WHATSAPP / VIBER
+========================================================= */
 
 function send(type){
-if(selected.length===0)return;
-selected.sort((a,b)=>a-b);
-const message=titleEl.innerText+"\n"+selected.join(" ");
 
-if(type==="wa"){
-window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`);
-}else{
-viberMessage=message;
-document.getElementById("viberText").value=message;
-document.getElementById("popup").style.display="flex";
+    if(selected.length === 0){
+        return;
+    }
+
+    selected.sort((a,b) => a-b);
+
+    const message =
+        titleEl.innerText +
+        "\n" +
+        selected.join(" ");
+
+    if(type === "wa"){
+
+        window.open(
+            `https://wa.me/${phone}?text=${encodeURIComponent(message)}`
+        );
+
+    }else{
+
+        viberMessage = message;
+
+        document.getElementById("viberText").value =
+            message;
+
+        document.getElementById("popup").style.display =
+            "flex";
+    }
 }
-}
+
+
+/* =========================================================
+   COPY VIBER PORUKE
+========================================================= */
 
 function copyText(){
-const textArea=document.getElementById("viberText");
-textArea.select();
-document.execCommand("copy");
-alert("Poruka je kopirana.");
+
+    const textArea =
+        document.getElementById("viberText");
+
+    textArea.select();
+
+    document.execCommand("copy");
+
+    alert("Poruka je kopirana.");
 }
+
+
+/* =========================================================
+   OTVORI VIBER
+========================================================= */
 
 function openViber(){
-window.open(`viber://chat?number=%2B${phone}`);
+
+    window.open(
+        `viber://chat?number=%2B${phone}`
+    );
 }
 
-fetch(`/api/albums`)
-.then(r=>r.json())
-.then(albums=>{
-const a=albums.find(x=>x.name===album);
-if(a){
-titleEl.innerText=
-`${a.date} ${a.club1} – ${a.club2} (${a.category}${a.extra?" "+a.extra:""})`
-.toUpperCase();
-}
-});
 
-fetch(`/api/images?name=${encodeURIComponent(album)}`)
-.then(r=>r.json())
-.then(images=>{
-images.forEach(img=>{
-const num=parseInt(img.split("_")[0],10);
-const div=document.createElement("div");
-div.className="photo";
-div.innerHTML=`
-<img src="/albums/${encodeURIComponent(album)}/${encodeURIComponent(img)}" loading="lazy">
-<div class="pick" onclick="togglePick(this, ${num})">+</div>
-`;
-grid.appendChild(div);
-});
-});
+/* =========================================================
+   NASLOV ALBUMA
+========================================================= */
+
+if(album){
+
+    fetch("/api/albums")
+
+    .then(response => {
+
+        if(!response.ok){
+            throw new Error("Greška pri učitavanju albuma");
+        }
+
+        return response.json();
+
+    })
+
+    .then(albums => {
+
+        const currentAlbum =
+            albums.find(item => item.name === album);
+
+        if(currentAlbum){
+
+            titleEl.innerText =
+                `${currentAlbum.date} ` +
+                `${currentAlbum.club1} – ` +
+                `${currentAlbum.club2} ` +
+                `(${currentAlbum.category}` +
+                `${currentAlbum.extra ? " " + currentAlbum.extra : ""})`
+                .toUpperCase();
+        }
+
+    })
+
+    .catch(error => {
+        console.error(error);
+    });
+
+}
+
+
+/* =========================================================
+   FOTOGRAFIJE ALBUMA
+========================================================= */
+
+if(album){
+
+    fetch(
+        `/api/images?name=${encodeURIComponent(album)}`
+    )
+
+    .then(response => {
+
+        if(!response.ok){
+            throw new Error(
+                "Greška pri učitavanju fotografija"
+            );
+        }
+
+        return response.json();
+
+    })
+
+    .then(images => {
+
+        images.forEach(img => {
+
+            const num =
+                parseInt(
+                    img.split("_")[0],
+                    10
+                );
+
+            const imageUrl =
+                getR2ImageUrl(
+                    album,
+                    img
+                );
+
+            const div =
+                document.createElement("div");
+
+            div.className = "photo";
+
+            div.innerHTML = `
+                <img
+                    src="${imageUrl}"
+                    loading="lazy"
+                    alt=""
+                >
+
+                <div
+                    class="pick"
+                    onclick="togglePick(this, ${num})"
+                >
+                    +
+                </div>
+            `;
+
+            grid.appendChild(div);
+
+        });
+
+    })
+
+    .catch(error => {
+
+        console.error(error);
+
+        grid.innerHTML =
+            "<p>Greška pri učitavanju fotografija.</p>";
+
+    });
+
+}else{
+
+    titleEl.innerText =
+        "Album nije pronađen.";
+
+}
+
 </script>
 
 </body>
